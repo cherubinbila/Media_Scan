@@ -388,3 +388,217 @@ class DatabaseManager:
         conn.execute("VACUUM")
         conn.close()
         print("✅ Base de données optimisée")
+    
+    # === GESTION DES CLASSIFICATIONS ===
+    
+    def add_classification(self, article_id: int, categorie: str, confiance: float, 
+                          mots_cles: List[str] = None, justification: str = None, 
+                          methode: str = 'mistral_ollama') -> int:
+        """
+        Ajouter une classification thématique
+        
+        Args:
+            article_id: ID de l'article
+            categorie: Catégorie (Politique, Économie, etc.)
+            confiance: Score de confiance (0-1)
+            mots_cles: Liste de mots-clés
+            justification: Explication de la classification
+            methode: Méthode utilisée
+        
+        Returns:
+            ID de la classification
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            mots_cles_json = json.dumps(mots_cles or [], ensure_ascii=False)
+            
+            cursor.execute("""
+                INSERT INTO classifications 
+                (article_id, categorie, confiance, mots_cles, justification, methode)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (article_id, categorie, confiance, mots_cles_json, justification, methode))
+            
+            classification_id = cursor.lastrowid
+            conn.commit()
+            return classification_id
+        
+        finally:
+            conn.close()
+    
+    def get_classification(self, article_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Récupérer la classification d'un article
+        
+        Args:
+            article_id: ID de l'article
+        
+        Returns:
+            Dictionnaire avec les infos de classification ou None
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT * FROM classifications
+                WHERE article_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            """, (article_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'id': row['id'],
+                    'article_id': row['article_id'],
+                    'categorie': row['categorie'],
+                    'confiance': row['confiance'],
+                    'mots_cles': json.loads(row['mots_cles']) if row['mots_cles'] else [],
+                    'justification': row['justification'],
+                    'methode': row['methode'],
+                    'created_at': row['created_at']
+                }
+            return None
+        
+        finally:
+            conn.close()
+    
+    def get_articles_by_category(self, categorie: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Récupérer les articles d'une catégorie
+        
+        Args:
+            categorie: Catégorie recherchée
+            limit: Nombre maximum d'articles
+        
+        Returns:
+            Liste d'articles avec leurs classifications
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT a.*, c.categorie, c.confiance, c.mots_cles, m.nom as media_nom
+                FROM articles a
+                JOIN classifications c ON a.id = c.article_id
+                JOIN medias m ON a.media_id = m.id
+                WHERE c.categorie = ?
+                ORDER BY a.date_publication DESC
+                LIMIT ?
+            """, (categorie, limit))
+            
+            articles = []
+            for row in cursor.fetchall():
+                articles.append({
+                    'id': row['id'],
+                    'titre': row['titre'],
+                    'url': row['url'],
+                    'date_publication': row['date_publication'],
+                    'media': row['media_nom'],
+                    'categorie': row['categorie'],
+                    'confiance': row['confiance'],
+                    'mots_cles': json.loads(row['mots_cles']) if row['mots_cles'] else []
+                })
+            
+            return articles
+        
+        finally:
+            conn.close()
+    
+    def get_classification_stats(self) -> Dict[str, Any]:
+        """
+        Obtenir des statistiques sur les classifications
+        
+        Returns:
+            Dictionnaire de statistiques
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Total d'articles classifiés
+            cursor.execute("SELECT COUNT(DISTINCT article_id) FROM classifications")
+            total_classifies = cursor.fetchone()[0]
+            
+            # Total d'articles
+            cursor.execute("SELECT COUNT(*) FROM articles")
+            total_articles = cursor.fetchone()[0]
+            
+            # Par catégorie
+            cursor.execute("""
+                SELECT categorie, COUNT(*) as count
+                FROM classifications
+                GROUP BY categorie
+                ORDER BY count DESC
+            """)
+            par_categorie = {row['categorie']: row['count'] for row in cursor.fetchall()}
+            
+            # Confiance moyenne par catégorie
+            cursor.execute("""
+                SELECT categorie, AVG(confiance) as avg_confiance
+                FROM classifications
+                GROUP BY categorie
+            """)
+            confiance_par_categorie = {row['categorie']: round(row['avg_confiance'], 2) 
+                                       for row in cursor.fetchall()}
+            
+            # Méthodes utilisées
+            cursor.execute("""
+                SELECT methode, COUNT(*) as count
+                FROM classifications
+                GROUP BY methode
+            """)
+            par_methode = {row['methode']: row['count'] for row in cursor.fetchall()}
+            
+            return {
+                'total_articles': total_articles,
+                'total_classifies': total_classifies,
+                'pourcentage_classifies': round(total_classifies / total_articles * 100, 1) if total_articles > 0 else 0,
+                'par_categorie': par_categorie,
+                'confiance_par_categorie': confiance_par_categorie,
+                'par_methode': par_methode
+            }
+        
+        finally:
+            conn.close()
+    
+    def get_unclassified_articles(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Récupérer les articles non classifiés
+        
+        Args:
+            limit: Nombre maximum d'articles
+        
+        Returns:
+            Liste d'articles
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT a.id, a.titre, a.contenu, a.url, a.date_publication
+                FROM articles a
+                LEFT JOIN classifications c ON a.id = c.article_id
+                WHERE c.id IS NULL
+                ORDER BY a.date_publication DESC
+                LIMIT ?
+            """, (limit,))
+            
+            articles = []
+            for row in cursor.fetchall():
+                articles.append({
+                    'id': row['id'],
+                    'titre': row['titre'],
+                    'contenu': row['contenu'],
+                    'url': row['url'],
+                    'date_publication': row['date_publication']
+                })
+            
+            return articles
+        
+        finally:
+            conn.close()

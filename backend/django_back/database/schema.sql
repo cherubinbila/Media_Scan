@@ -51,6 +51,32 @@ CREATE TABLE IF NOT EXISTS scraping_logs (
     FOREIGN KEY (media_id) REFERENCES medias(id) ON DELETE CASCADE
 );
 
+-- Table des classifications thématiques
+CREATE TABLE IF NOT EXISTS classifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL,
+    categorie TEXT NOT NULL,  -- Politique, Économie, Sécurité, Santé, Culture, Sport, Autres
+    confiance REAL NOT NULL,  -- Score de confiance (0-1)
+    mots_cles TEXT,  -- JSON array des mots-clés
+    justification TEXT,  -- Explication de la classification
+    methode TEXT,  -- mistral_ollama, keywords_fallback
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+);
+
+-- Table des entités extraites (personnes, lieux, organisations)
+CREATE TABLE IF NOT EXISTS entites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER NOT NULL,
+    type TEXT NOT NULL,  -- PERSON, LOCATION, ORGANIZATION
+    valeur TEXT NOT NULL,
+    contexte TEXT,  -- Phrase où l'entité apparaît
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+);
+
 -- Index pour améliorer les performances
 CREATE INDEX IF NOT EXISTS idx_articles_media ON articles(media_id);
 CREATE INDEX IF NOT EXISTS idx_articles_date ON articles(date_publication);
@@ -59,3 +85,7 @@ CREATE INDEX IF NOT EXISTS idx_articles_scraped ON articles(scraped_at);
 CREATE INDEX IF NOT EXISTS idx_medias_url ON medias(url);
 CREATE INDEX IF NOT EXISTS idx_logs_media ON scraping_logs(media_id);
 CREATE INDEX IF NOT EXISTS idx_logs_date ON scraping_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_classifications_article ON classifications(article_id);
+CREATE INDEX IF NOT EXISTS idx_classifications_categorie ON classifications(categorie);
+CREATE INDEX IF NOT EXISTS idx_entites_article ON entites(article_id);
+CREATE INDEX IF NOT EXISTS idx_entites_type ON entites(type);
