@@ -1,21 +1,9 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import {
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Calendar,
-  Activity,
-} from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Calendar, Activity } from "lucide-react";
 
-export default function ScheduleControl() {
+const ScheduleControl = () => {
   const mediaCompliance = [
     {
       name: "Lefaso.net",
@@ -117,10 +105,7 @@ export default function ScheduleControl() {
         );
       case "alert":
         return (
-          <Badge
-            variant="outline"
-            className="border-destructive text-destructive"
-          >
+          <Badge variant="outline" className="border-destructive text-destructive">
             <XCircle className="h-3 w-3 mr-1" />
             Non conforme
           </Badge>
@@ -137,9 +122,9 @@ export default function ScheduleControl() {
   };
 
   const complianceSummary = {
-    compliant: mediaCompliance.filter((m) => m.status === "compliant").length,
-    warning: mediaCompliance.filter((m) => m.status === "warning").length,
-    alert: mediaCompliance.filter((m) => m.status === "alert").length,
+    compliant: mediaCompliance.filter(m => m.status === "compliant").length,
+    warning: mediaCompliance.filter(m => m.status === "warning").length,
+    alert: mediaCompliance.filter(m => m.status === "alert").length,
   };
 
   return (
@@ -152,12 +137,8 @@ export default function ScheduleControl() {
             <CheckCircle2 className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {complianceSummary.compliant}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              médias respectant les obligations
-            </p>
+            <div className="text-2xl font-bold">{complianceSummary.compliant}</div>
+            <p className="text-xs text-muted-foreground">médias respectant les obligations</p>
           </CardContent>
         </Card>
 
@@ -167,12 +148,8 @@ export default function ScheduleControl() {
             <AlertCircle className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {complianceSummary.warning}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              médias nécessitant une attention
-            </p>
+            <div className="text-2xl font-bold">{complianceSummary.warning}</div>
+            <p className="text-xs text-muted-foreground">médias nécessitant une attention</p>
           </CardContent>
         </Card>
 
@@ -183,9 +160,7 @@ export default function ScheduleControl() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{complianceSummary.alert}</div>
-            <p className="text-xs text-muted-foreground">
-              médias en situation d'alerte
-            </p>
+            <p className="text-xs text-muted-foreground">médias en situation d'alerte</p>
           </CardContent>
         </Card>
       </div>
@@ -194,27 +169,18 @@ export default function ScheduleControl() {
       <Card>
         <CardHeader>
           <CardTitle>Contrôle des grilles de programmes</CardTitle>
-          <CardDescription>
-            Respect des obligations réglementaires par média
-          </CardDescription>
+          <CardDescription>Respect des obligations réglementaires par média</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {mediaCompliance.map((media, index) => (
-              <div
-                key={index}
-                className="p-4 rounded-lg border bg-card space-y-3"
-              >
+              <div key={index} className="p-4 rounded-lg border bg-card space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <h4 className="font-semibold">{media.name}</h4>
                     {getStatusBadge(media.status)}
                   </div>
-                  <div
-                    className={`text-2xl font-bold ${getComplianceColor(
-                      media.compliance
-                    )}`}
-                  >
+                  <div className={`text-2xl font-bold ${getComplianceColor(media.compliance)}`}>
                     {media.compliance}%
                   </div>
                 </div>
@@ -243,9 +209,7 @@ export default function ScheduleControl() {
                   </div>
 
                   <div>
-                    <div className="text-muted-foreground mb-1">
-                      Dernière publication
-                    </div>
+                    <div className="text-muted-foreground mb-1">Dernière publication</div>
                     <div className="font-semibold">{media.lastPublication}</div>
                   </div>
 
@@ -262,9 +226,9 @@ export default function ScheduleControl() {
                 {media.status !== "compliant" && (
                   <div className="pt-2 border-t">
                     <p className="text-sm text-muted-foreground">
-                      {media.status === "warning" &&
+                      {media.status === "warning" && 
                         "⚠️ Activité en baisse. Vérifier la régularité des publications."}
-                      {media.status === "alert" &&
+                      {media.status === "alert" && 
                         "🚨 Inactivité prolongée détectée. Risque de cessation imminente."}
                     </p>
                   </div>
@@ -279,25 +243,20 @@ export default function ScheduleControl() {
       <Card>
         <CardHeader>
           <CardTitle>Alertes d'inactivité</CardTitle>
-          <CardDescription>
-            Médias nécessitant une intervention du CSC
-          </CardDescription>
+          <CardDescription>Médias nécessitant une intervention du CSC</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {mediaCompliance
-              .filter((m) => m.status === "alert")
+              .filter(m => m.status === "alert")
               .map((media, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-3 p-3 rounded-lg border border-destructive/50 bg-destructive/5"
-                >
+                <div key={index} className="flex items-start gap-3 p-3 rounded-lg border border-destructive/50 bg-destructive/5">
                   <XCircle className="h-5 w-5 text-destructive mt-0.5" />
                   <div className="flex-1">
                     <h5 className="font-semibold text-sm">{media.name}</h5>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Seulement {media.activeDays} jours d'activité sur 90
-                      requis. Dernière publication : {media.lastPublication}.
+                      Seulement {media.activeDays} jours d'activité sur 90 requis. 
+                      Dernière publication : {media.lastPublication}.
                     </p>
                     <p className="text-sm font-medium text-destructive mt-2">
                       Action recommandée : Notification officielle au média
@@ -310,4 +269,6 @@ export default function ScheduleControl() {
       </Card>
     </div>
   );
-}
+};
+
+export default ScheduleControl;

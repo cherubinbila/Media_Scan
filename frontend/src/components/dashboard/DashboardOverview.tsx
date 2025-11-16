@@ -1,9 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TrendingUp, FileText, Users, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, AlertTriangle, Users, FileText } from 'lucide-react';
 
-export default function DashboardOverview() {
-     // Données simulées
+const DashboardOverview = () => {
+  // Données simulées
   const kpiData = [
     { label: "Articles collectés", value: "12,847", change: "+15%", icon: FileText, color: "text-primary" },
     { label: "Médias surveillés", value: "8", change: "100%", icon: Users, color: "text-accent" },
@@ -157,5 +157,7 @@ export default function DashboardOverview() {
         </CardContent>
       </Card>
     </div>
-  )
-}
+  );
+};
+
+export default DashboardOverview;

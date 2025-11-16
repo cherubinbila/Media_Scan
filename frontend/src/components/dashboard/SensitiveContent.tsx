@@ -1,48 +1,14 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Ban, Flame, Eye } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-} from "recharts";
+import { AlertTriangle, Ban, Flame, Eye, ExternalLink } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 
-export default function SensitiveContent() {
+const SensitiveContent = () => {
   const alertTypes = [
-    {
-      type: "Discours de haine",
-      count: 8,
-      severity: "high",
-      color: "hsl(var(--destructive))",
-      icon: Flame,
-    },
-    {
-      type: "Désinformation",
-      count: 12,
-      severity: "high",
-      color: "hsl(var(--warning))",
-      icon: Ban,
-    },
-    {
-      type: "Contenu toxique",
-      count: 3,
-      severity: "medium",
-      color: "hsl(var(--accent))",
-      icon: AlertTriangle,
-    },
+    { type: "Discours de haine", count: 8, severity: "high", color: "hsl(var(--destructive))", icon: Flame },
+    { type: "Désinformation", count: 12, severity: "high", color: "hsl(var(--warning))", icon: Ban },
+    { type: "Contenu toxique", count: 3, severity: "medium", color: "hsl(var(--accent))", icon: AlertTriangle },
   ];
 
   const weeklyAlerts = [
@@ -62,7 +28,7 @@ export default function SensitiveContent() {
       date: "Il y a 2 heures",
       severity: "high",
       status: "En cours d'examen",
-      url: "#",
+      url: "#"
     },
     {
       id: 2,
@@ -72,7 +38,7 @@ export default function SensitiveContent() {
       date: "Il y a 5 heures",
       severity: "high",
       status: "Signalé au média",
-      url: "#",
+      url: "#"
     },
     {
       id: 3,
@@ -82,7 +48,7 @@ export default function SensitiveContent() {
       date: "Hier",
       severity: "medium",
       status: "En cours d'examen",
-      url: "#",
+      url: "#"
     },
     {
       id: 4,
@@ -92,7 +58,7 @@ export default function SensitiveContent() {
       date: "Hier",
       severity: "medium",
       status: "Résolu",
-      url: "#",
+      url: "#"
     },
     {
       id: 5,
@@ -102,7 +68,7 @@ export default function SensitiveContent() {
       date: "Il y a 2 jours",
       severity: "high",
       status: "Signalé au média",
-      url: "#",
+      url: "#"
     },
   ];
 
@@ -111,11 +77,7 @@ export default function SensitiveContent() {
       case "high":
         return <Badge variant="destructive">Élevé</Badge>;
       case "medium":
-        return (
-          <Badge variant="default" className="bg-accent">
-            Moyen
-          </Badge>
-        );
+        return <Badge variant="default" className="bg-accent">Moyen</Badge>;
       default:
         return <Badge variant="secondary">Faible</Badge>;
     }
@@ -124,26 +86,11 @@ export default function SensitiveContent() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "En cours d'examen":
-        return (
-          <Badge variant="outline" className="border-warning text-warning">
-            En cours
-          </Badge>
-        );
+        return <Badge variant="outline" className="border-warning text-warning">En cours</Badge>;
       case "Signalé au média":
-        return (
-          <Badge
-            variant="outline"
-            className="border-destructive text-destructive"
-          >
-            Signalé
-          </Badge>
-        );
+        return <Badge variant="outline" className="border-destructive text-destructive">Signalé</Badge>;
       case "Résolu":
-        return (
-          <Badge variant="outline" className="border-success text-success">
-            Résolu
-          </Badge>
-        );
+        return <Badge variant="outline" className="border-success text-success">Résolu</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -154,15 +101,9 @@ export default function SensitiveContent() {
       {/* Vue d'ensemble des alertes */}
       <div className="grid gap-4 md:grid-cols-3">
         {alertTypes.map((alert, index) => (
-          <Card
-            key={index}
-            className="border-l-4"
-            style={{ borderLeftColor: alert.color }}
-          >
+          <Card key={index} className="border-l-4" style={{ borderLeftColor: alert.color }}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {alert.type}
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">{alert.type}</CardTitle>
               <alert.icon className="h-4 w-4" style={{ color: alert.color }} />
             </CardHeader>
             <CardContent>
@@ -180,44 +121,39 @@ export default function SensitiveContent() {
       <Card>
         <CardHeader>
           <CardTitle>Évolution des contenus sensibles</CardTitle>
-          <CardDescription>
-            Nombre d'alertes détectées par semaine
-          </CardDescription>
+          <CardDescription>Nombre d'alertes détectées par semaine</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={weeklyAlerts}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="semaine" stroke="hsl(var(--muted-foreground))" />
               <YAxis stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: "hsl(var(--card))", 
                   border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
-                }}
+                  borderRadius: "var(--radius)"
+                }} 
               />
-              <Line
-                type="monotone"
-                dataKey="haine"
-                stroke="hsl(var(--destructive))"
+              <Line 
+                type="monotone" 
+                dataKey="haine" 
+                stroke="hsl(var(--destructive))" 
                 strokeWidth={2}
                 name="Discours de haine"
               />
-              <Line
-                type="monotone"
-                dataKey="desinformation"
-                stroke="hsl(var(--warning))"
+              <Line 
+                type="monotone" 
+                dataKey="desinformation" 
+                stroke="hsl(var(--warning))" 
                 strokeWidth={2}
                 name="Désinformation"
               />
-              <Line
-                type="monotone"
-                dataKey="toxicite"
-                stroke="hsl(var(--accent))"
+              <Line 
+                type="monotone" 
+                dataKey="toxicite" 
+                stroke="hsl(var(--accent))" 
                 strokeWidth={2}
                 name="Toxicité"
               />
@@ -230,17 +166,12 @@ export default function SensitiveContent() {
       <Card>
         <CardHeader>
           <CardTitle>Alertes récentes</CardTitle>
-          <CardDescription>
-            Contenus sensibles détectés nécessitant une attention
-          </CardDescription>
+          <CardDescription>Contenus sensibles détectés nécessitant une attention</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {recentAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
-              >
+              <div key={alert.id} className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors">
                 <div className="mt-1">
                   <AlertTriangle className="h-5 w-5 text-warning" />
                 </div>
@@ -273,45 +204,36 @@ export default function SensitiveContent() {
       <Card>
         <CardHeader>
           <CardTitle>Répartition par média</CardTitle>
-          <CardDescription>
-            Nombre de contenus sensibles détectés par source
-          </CardDescription>
+          <CardDescription>Nombre de contenus sensibles détectés par source</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart
-              data={[
-                { media: "Lefaso", count: 4 },
-                { media: "FasoPresse", count: 6 },
-                { media: "Burkina 24", count: 3 },
-                { media: "Sidwaya", count: 5 },
-                { media: "L'Obs.", count: 2 },
-                { media: "AIB", count: 2 },
-                { media: "Le Pays", count: 1 },
-              ]}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-              />
+            <BarChart data={[
+              { media: "Lefaso", count: 4 },
+              { media: "FasoPresse", count: 6 },
+              { media: "Burkina 24", count: 3 },
+              { media: "Sidwaya", count: 5 },
+              { media: "L'Obs.", count: 2 },
+              { media: "AIB", count: 2 },
+              { media: "Le Pays", count: 1 },
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="media" stroke="hsl(var(--muted-foreground))" />
               <YAxis stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: "hsl(var(--card))", 
                   border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
-                }}
+                  borderRadius: "var(--radius)"
+                }} 
               />
-              <Bar
-                dataKey="count"
-                fill="hsl(var(--destructive))"
-                radius={[8, 8, 0, 0]}
-              />
+              <Bar dataKey="count" fill="hsl(var(--destructive))" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
     </div>
   );
-}
+};
+
+export default SensitiveContent;

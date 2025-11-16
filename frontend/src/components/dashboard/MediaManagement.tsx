@@ -1,7 +1,8 @@
-import  { useState } from 'react'
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,13 +11,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { toast } from 'sonner';
-
+import { toast } from "@/hooks/use-toast";
 
 const mediaSchema = z.object({
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères").max(100),
   type: z.enum(["web", "facebook", "twitter"], {
-    message: "Veuillez sélectionner un type",
+    required_error: "Veuillez sélectionner un type",
   }),
   url: z.string().min(1, "Ce champ est requis").max(500),
 });
@@ -31,9 +31,8 @@ interface Media {
   addedAt: string;
 }
 
-
-export default function MediaManagement() {
-const [medias, setMedias] = useState<Media[]>([
+const MediaManagement = () => {
+  const [medias, setMedias] = useState<Media[]>([
     {
       id: "1",
       name: "Lefaso.net",
@@ -78,14 +77,21 @@ const [medias, setMedias] = useState<Media[]>([
     setMedias([...medias, newMedia]);
     form.reset();
     
-    toast.success(`${data.name} a été ajouté à la liste de surveillance.`);
+    toast({
+      title: "Média ajouté",
+      description: `${data.name} a été ajouté à la liste de surveillance.`,
+    });
   };
 
   const handleDelete = (id: string) => {
     const media = medias.find(m => m.id === id);
     setMedias(medias.filter(m => m.id !== id));
     
-    toast.success(`${media?.name} a été retiré de la surveillance.`);
+    toast({
+      title: "Média supprimé",
+      description: `${media?.name} a été retiré de la surveillance.`,
+      variant: "destructive",
+    });
   };
 
   const getIcon = (type: string) => {
@@ -113,7 +119,6 @@ const [medias, setMedias] = useState<Media[]>([
         return type;
     }
   };
-
 
   return (
     <div className="space-y-6">
@@ -274,5 +279,7 @@ const [medias, setMedias] = useState<Media[]>([
         </CardContent>
       </Card>
     </div>
-  )
-}
+  );
+};
+
+export default MediaManagement;

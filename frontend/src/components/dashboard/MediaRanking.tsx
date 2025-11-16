@@ -2,11 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 
-
-export default function MediaRanking() {
-const mediaRanking = [
+const MediaRanking = () => {
+  const mediaRanking = [
     { 
       rank: 1, 
       name: "Lefaso.net", 
@@ -114,9 +113,8 @@ const mediaRanking = [
     return "text-warning";
   };
 
-
   return (
-     <div className="space-y-6">
+    <div className="space-y-6">
       {/* Top 3 Podium */}
       <div className="grid gap-4 md:grid-cols-3">
         {mediaRanking.slice(0, 3).map((media, index) => (
@@ -238,5 +236,7 @@ const mediaRanking = [
         </Card>
       </div>
     </div>
-  )
-}
+  );
+};
+
+export default MediaRanking;

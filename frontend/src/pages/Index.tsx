@@ -1,45 +1,31 @@
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  BarChart3,
-  FileDown,
-  TrendingUp,
-  AlertTriangle,
-  Radio,
-  FileText,
-  Settings,
-} from "lucide-react";
+import { BarChart3, FileDown, TrendingUp, AlertTriangle, Radio, FileText, Settings } from "lucide-react";
 import DashboardOverview from "@/components/dashboard/DashboardOverview";
 import MediaRanking from "@/components/dashboard/MediaRanking";
 import ThematicAnalysis from "@/components/dashboard/ThematicAnalysis";
 import SensitiveContent from "@/components/dashboard/SensitiveContent";
 import ScheduleControl from "@/components/dashboard/ScheduleControl";
 import MediaManagement from "@/components/dashboard/MediaManagement";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 
-export default function Index() {
+const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
 
-  const handleExport = (format: "pdf" | "excel") => {
-    const exportPromise = new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ format });
-      }, 2000);
+  const handleExport = (format: 'pdf' | 'excel') => {
+    toast({
+      title: "Export en cours",
+      description: `Génération du rapport ${format.toUpperCase()}...`,
     });
-
-    toast.promise(exportPromise, {
-      loading: `Génération du rapport ${format.toUpperCase()}...`,
-      success: `Le rapport a été téléchargé au format ${format.toUpperCase()}.`,
-      error: "Erreur lors de l'export",
-    });
+    // Simulation de l'export
+    setTimeout(() => {
+      toast({
+        title: "Export réussi",
+        description: `Le rapport a été téléchargé au format ${format.toUpperCase()}.`,
+      });
+    }, 2000);
   };
 
   return (
@@ -53,27 +39,23 @@ export default function Index() {
                 <Radio className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  CSC Média Monitor
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Plateforme de surveillance des médias
-                </p>
+                <h1 className="text-2xl font-bold text-foreground">CSC Média Monitor</h1>
+                <p className="text-sm text-muted-foreground">Plateforme de surveillance des médias</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
+              <Button 
+                variant="outline" 
                 size="sm"
-                onClick={() => handleExport("excel")}
+                onClick={() => handleExport('excel')}
               >
                 <FileDown className="h-4 w-4 mr-2" />
                 Excel
               </Button>
-              <Button
-                variant="default"
+              <Button 
+                variant="default" 
                 size="sm"
-                onClick={() => handleExport("pdf")}
+                onClick={() => handleExport('pdf')}
               >
                 <FileText className="h-4 w-4 mr-2" />
                 PDF
@@ -85,11 +67,7 @@ export default function Index() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-6"
-        >
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="overview" className="gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -144,4 +122,6 @@ export default function Index() {
       </main>
     </div>
   );
-}
+};
+
+export default Index;
