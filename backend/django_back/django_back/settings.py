@@ -146,6 +146,10 @@ REST_FRAMEWORK = {
 CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement
 CORS_ALLOW_CREDENTIALS = True
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+]
+
 # Swagger Configuration
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {

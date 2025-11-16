@@ -56,7 +56,9 @@ class MediaDetailView(APIView):
     
     def get(self, request, media_id):
         """GET /api/medias/{id}/"""
-        media = db.get_media_by_url(request.GET.get('url', ''))
+        # Récupérer le média par son ID
+        medias = db.get_all_medias(actif_only=False)
+        media = next((m for m in medias if m.id == media_id), None)
         
         if not media:
             return Response(

@@ -282,9 +282,9 @@ class AudienceAnalyzer:
                 'total_publications': total_publications,
                 'total_engagement': total_engagement,
                 'score_influence': round(score_influence, 2),
-                'web': web,
-                'facebook': fb,
-                'twitter': tw
+                'web': web if web else None,
+                'facebook': fb if fb else None,
+                'twitter': tw if tw else None
             })
         
         # Trier par score d'influence

@@ -11,6 +11,10 @@ import ScheduleControl from "@/components/dashboard/ScheduleControl";
 import MediaManagement from "@/components/dashboard/MediaManagement";
 import { toast } from "@/hooks/use-toast";
 
+/*import { testApi } from "@/services/test-api";
+
+testApi();*/
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
 
