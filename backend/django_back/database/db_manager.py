@@ -5,7 +5,7 @@ Gestionnaire de base de données SQLite
 import sqlite3
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 
@@ -28,41 +28,49 @@ class DatabaseManager:
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         
         # Initialiser la base de données
-        self.init_database()
+        self._init_database()
     
-    def get_connection(self) -> sqlite3.Connection:
-        """Obtenir une connexion à la base de données"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Pour accéder aux colonnes par nom
-        return conn
-    
-    def init_database(self):
-        """Initialiser la base de données avec le schéma"""
+    def _init_database(self):
+        """Initialise la base de données avec le schéma"""
         schema_path = Path(__file__).parent / 'schema.sql'
+        
+        if not schema_path.exists():
+            raise FileNotFoundError(f"Schema file not found: {schema_path}")
         
         with open(schema_path, 'r', encoding='utf-8') as f:
             schema = f.read()
         
         conn = self.get_connection()
-        conn.executescript(schema)
-        conn.commit()
-        conn.close()
-        
-        print("✅ Base de données initialisée")
+        try:
+            conn.executescript(schema)
+            conn.commit()
+        finally:
+            conn.close()
     
-    # === GESTION DES MÉDIAS ===
+    def get_connection(self) -> sqlite3.Connection:
+        """
+        Crée une nouvelle connexion à la base de données
+        
+        Returns:
+            Connexion SQLite avec row_factory configuré
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+    
+    # ==================== MÉDIAS ====================
     
     def add_media(self, nom: str, url: str, type_site: str = 'unknown') -> int:
         """
-        Ajouter un média
+        Ajoute ou met à jour un média
         
         Args:
             nom: Nom du média
             url: URL du site
-            type_site: Type de site (wordpress, html, autre)
-        
+            type_site: Type de site (wordpress, html, rss)
+            
         Returns:
-            ID du média créé ou existant
+            ID du média
         """
         conn = self.get_connection()
         cursor = conn.cursor()
@@ -113,8 +121,36 @@ class DatabaseManager:
         finally:
             conn.close()
     
+    def get_all_medias(self, actif_only: bool = True) -> List[Media]:
+        """Récupérer tous les médias"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if actif_only:
+                cursor.execute("SELECT * FROM medias WHERE actif = 1 ORDER BY nom")
+            else:
+                cursor.execute("SELECT * FROM medias ORDER BY nom")
+            
+            medias = []
+            for row in cursor.fetchall():
+                medias.append(Media(
+                    id=row['id'],
+                    nom=row['nom'],
+                    url=row['url'],
+                    type_site=row['type_site'],
+                    actif=bool(row['actif']),
+                    derniere_collecte=row['derniere_collecte'],
+                    created_at=row['created_at']
+                ))
+            
+            return medias
+        
+        finally:
+            conn.close()
+    
     def update_media_last_scrape(self, media_id: int):
-        """Mettre à jour la date de dernière collecte d'un média"""
+        """Met à jour la date de dernière collecte d'un média"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -129,56 +165,29 @@ class DatabaseManager:
         finally:
             conn.close()
     
-    def get_all_active_medias(self) -> List[Media]:
-        """Récupérer tous les médias actifs"""
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute("SELECT * FROM medias WHERE actif = 1 ORDER BY nom")
-            rows = cursor.fetchall()
-            
-            return [
-                Media(
-                    id=row['id'],
-                    nom=row['nom'],
-                    url=row['url'],
-                    type_site=row['type_site'],
-                    actif=bool(row['actif']),
-                    derniere_collecte=row['derniere_collecte'],
-                    created_at=row['created_at']
-                )
-                for row in rows
-            ]
-        
-        finally:
-            conn.close()
+    # ==================== ARTICLES ====================
     
-    # === GESTION DES ARTICLES ===
-    
-    def add_article(self, article: Article) -> Optional[int]:
+    def add_article(self, article: Article) -> int:
         """
-        Ajouter un article
+        Ajoute un article à la base de données
         
         Args:
             article: Instance d'Article
-        
+            
         Returns:
-            ID de l'article créé, ou None si déjà existant
+            ID de l'article inséré, ou 0 si déjà existant
         """
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
-            # Convertir les listes en JSON si nécessaire
-            categories_json = json.dumps(article.categories) if isinstance(article.categories, list) else article.categories
-            tags_json = json.dumps(article.tags) if isinstance(article.tags, list) else article.tags
-            
             cursor.execute("""
-                INSERT OR IGNORE INTO articles 
-                (media_id, titre, contenu, extrait, url, auteur, date_publication,
-                 image_url, categories, tags, source_type, vues, commentaires)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO articles (
+                    media_id, titre, contenu, extrait, url, auteur,
+                    date_publication, image_url, categories, tags,
+                    source_type, vues, commentaires
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(url) DO NOTHING
             """, (
                 article.media_id,
                 article.titre,
@@ -188,8 +197,8 @@ class DatabaseManager:
                 article.auteur,
                 article.date_publication,
                 article.image_url,
-                categories_json,
-                tags_json,
+                json.dumps(article.categories) if article.categories else None,
+                json.dumps(article.tags) if article.tags else None,
                 article.source_type,
                 article.vues,
                 article.commentaires
@@ -198,21 +207,26 @@ class DatabaseManager:
             article_id = cursor.lastrowid
             conn.commit()
             
-            # Retourner None si l'article existait déjà (IGNORE)
-            return article_id if article_id > 0 else None
+            return article_id
+        
+        except sqlite3.IntegrityError:
+            return 0
         
         finally:
             conn.close()
     
-    def article_exists(self, url: str) -> bool:
-        """Vérifier si un article existe déjà"""
+    def get_article_by_url(self, url: str) -> Optional[Article]:
+        """Récupérer un article par son URL"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
-            cursor.execute("SELECT COUNT(*) as count FROM articles WHERE url = ?", (url,))
-            count = cursor.fetchone()['count']
-            return count > 0
+            cursor.execute("SELECT * FROM articles WHERE url = ?", (url,))
+            row = cursor.fetchone()
+            
+            if row:
+                return self._row_to_article(row)
+            return None
         
         finally:
             conn.close()
@@ -230,49 +244,33 @@ class DatabaseManager:
                 LIMIT ?
             """, (media_id, limit))
             
-            rows = cursor.fetchall()
-            return [self._row_to_article(row) for row in rows]
+            return [self._row_to_article(row) for row in cursor.fetchall()]
         
         finally:
             conn.close()
     
-    def get_recent_articles(self, days: int = 30, limit: int = 100) -> List[Article]:
+    def get_recent_articles(self, days: int = 7, limit: int = 100) -> List[Article]:
         """Récupérer les articles récents"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
+            date_limit = (datetime.now() - timedelta(days=days)).isoformat()
+            
             cursor.execute("""
                 SELECT * FROM articles 
-                WHERE date_publication >= datetime('now', '-' || ? || ' days')
+                WHERE date_publication >= ?
                 ORDER BY date_publication DESC
                 LIMIT ?
-            """, (days, limit))
+            """, (date_limit, limit))
             
-            rows = cursor.fetchall()
-            return [self._row_to_article(row) for row in rows]
-        
-        finally:
-            conn.close()
-    
-    def get_article_count(self, media_id: Optional[int] = None) -> int:
-        """Compter les articles (total ou par média)"""
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            if media_id:
-                cursor.execute("SELECT COUNT(*) as count FROM articles WHERE media_id = ?", (media_id,))
-            else:
-                cursor.execute("SELECT COUNT(*) as count FROM articles")
-            
-            return cursor.fetchone()['count']
+            return [self._row_to_article(row) for row in cursor.fetchall()]
         
         finally:
             conn.close()
     
     def _row_to_article(self, row: sqlite3.Row) -> Article:
-        """Convertir une ligne SQL en objet Article"""
+        """Convertit une ligne SQL en objet Article"""
         return Article(
             id=row['id'],
             media_id=row['media_id'],
@@ -283,27 +281,26 @@ class DatabaseManager:
             auteur=row['auteur'],
             date_publication=row['date_publication'],
             image_url=row['image_url'],
-            categories=row['categories'],
-            tags=row['tags'],
+            categories=json.loads(row['categories']) if row['categories'] else [],
+            tags=json.loads(row['tags']) if row['tags'] else [],
             source_type=row['source_type'],
-            scraped_at=row['scraped_at'],
             vues=row['vues'],
             commentaires=row['commentaires'],
+            scraped_at=row['scraped_at'],
             created_at=row['created_at']
         )
     
-    # === LOGS DE SCRAPING ===
+    # ==================== LOGS ====================
     
     def add_scraping_log(self, media_id: int, status: str, methode: str, 
                         articles_collectes: int = 0, message: str = ""):
-        """Ajouter un log de scraping"""
+        """Ajoute un log de scraping"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute("""
-                INSERT INTO scraping_logs 
-                (media_id, status, methode, articles_collectes, message)
+                INSERT INTO scraping_logs (media_id, status, methode, articles_collectes, message)
                 VALUES (?, ?, ?, ?, ?)
             """, (media_id, status, methode, articles_collectes, message))
             
@@ -312,140 +309,49 @@ class DatabaseManager:
         finally:
             conn.close()
     
-    def get_scraping_stats(self) -> Dict[str, Any]:
-        """Obtenir des statistiques de scraping"""
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # Total articles
-            cursor.execute("SELECT COUNT(*) as total FROM articles")
-            total_articles = cursor.fetchone()['total']
-            
-            # Articles par média
-            cursor.execute("""
-                SELECT m.nom, COUNT(a.id) as count
-                FROM medias m
-                LEFT JOIN articles a ON m.id = a.media_id
-                GROUP BY m.id
-                ORDER BY count DESC
-            """)
-            articles_par_media = dict(cursor.fetchall())
-            
-            # Articles par source
-            cursor.execute("""
-                SELECT source_type, COUNT(*) as count
-                FROM articles
-                GROUP BY source_type
-            """)
-            articles_par_source = dict(cursor.fetchall())
-            
-            # Derniers logs
-            cursor.execute("""
-                SELECT l.*, m.nom as media_nom
-                FROM scraping_logs l
-                JOIN medias m ON l.media_id = m.id
-                ORDER BY l.created_at DESC
-                LIMIT 10
-            """)
-            derniers_logs = [dict(row) for row in cursor.fetchall()]
-            
-            return {
-                'total_articles': total_articles,
-                'articles_par_media': articles_par_media,
-                'articles_par_source': articles_par_source,
-                'derniers_logs': derniers_logs
-            }
-        
-        finally:
-            conn.close()
+    # ==================== CLASSIFICATIONS ====================
     
-    # === UTILITAIRES ===
-    
-    def clear_old_articles(self, days: int = 90):
-        """Supprimer les articles de plus de X jours"""
+    def add_classification(self, article_id: int, categorie: str, confiance: float,
+                          mots_cles: List[str] = None, justification: str = "",
+                          methode: str = "mistral_ollama"):
+        """Ajoute une classification thématique"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute("""
-                DELETE FROM articles 
-                WHERE date_publication < datetime('now', '-' || ? || ' days')
-            """, (days,))
+                INSERT INTO classifications (
+                    article_id, categorie, confiance, mots_cles, justification, methode
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(article_id) DO UPDATE SET
+                    categorie = excluded.categorie,
+                    confiance = excluded.confiance,
+                    mots_cles = excluded.mots_cles,
+                    justification = excluded.justification,
+                    methode = excluded.methode,
+                    created_at = CURRENT_TIMESTAMP
+            """, (
+                article_id,
+                categorie,
+                confiance,
+                json.dumps(mots_cles) if mots_cles else None,
+                justification,
+                methode
+            ))
             
-            deleted = cursor.rowcount
             conn.commit()
-            
-            print(f"🗑️ {deleted} articles supprimés (> {days} jours)")
-            return deleted
-        
-        finally:
-            conn.close()
-    
-    def vacuum(self):
-        """Optimiser la base de données"""
-        conn = self.get_connection()
-        conn.execute("VACUUM")
-        conn.close()
-        print("✅ Base de données optimisée")
-    
-    # === GESTION DES CLASSIFICATIONS ===
-    
-    def add_classification(self, article_id: int, categorie: str, confiance: float, 
-                          mots_cles: List[str] = None, justification: str = None, 
-                          methode: str = 'mistral_ollama') -> int:
-        """
-        Ajouter une classification thématique
-        
-        Args:
-            article_id: ID de l'article
-            categorie: Catégorie (Politique, Économie, etc.)
-            confiance: Score de confiance (0-1)
-            mots_cles: Liste de mots-clés
-            justification: Explication de la classification
-            methode: Méthode utilisée
-        
-        Returns:
-            ID de la classification
-        """
-        conn = self.get_connection()
-        cursor = conn.cursor()
-        
-        try:
-            mots_cles_json = json.dumps(mots_cles or [], ensure_ascii=False)
-            
-            cursor.execute("""
-                INSERT INTO classifications 
-                (article_id, categorie, confiance, mots_cles, justification, methode)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (article_id, categorie, confiance, mots_cles_json, justification, methode))
-            
-            classification_id = cursor.lastrowid
-            conn.commit()
-            return classification_id
         
         finally:
             conn.close()
     
     def get_classification(self, article_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Récupérer la classification d'un article
-        
-        Args:
-            article_id: ID de l'article
-        
-        Returns:
-            Dictionnaire avec les infos de classification ou None
-        """
+        """Récupère la classification d'un article"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute("""
-                SELECT * FROM classifications
-                WHERE article_id = ?
-                ORDER BY created_at DESC
-                LIMIT 1
+                SELECT * FROM classifications WHERE article_id = ?
             """, (article_id,))
             
             row = cursor.fetchone()
@@ -466,139 +372,431 @@ class DatabaseManager:
             conn.close()
     
     def get_articles_by_category(self, categorie: str, limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        Récupérer les articles d'une catégorie
-        
-        Args:
-            categorie: Catégorie recherchée
-            limit: Nombre maximum d'articles
-        
-        Returns:
-            Liste d'articles avec leurs classifications
-        """
+        """Récupère les articles d'une catégorie"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute("""
-                SELECT a.*, c.categorie, c.confiance, c.mots_cles, m.nom as media_nom
+                SELECT a.*, c.categorie, c.confiance
                 FROM articles a
                 JOIN classifications c ON a.id = c.article_id
-                JOIN medias m ON a.media_id = m.id
                 WHERE c.categorie = ?
                 ORDER BY a.date_publication DESC
                 LIMIT ?
             """, (categorie, limit))
             
-            articles = []
+            results = []
             for row in cursor.fetchall():
-                articles.append({
-                    'id': row['id'],
-                    'titre': row['titre'],
-                    'url': row['url'],
-                    'date_publication': row['date_publication'],
-                    'media': row['media_nom'],
+                article = self._row_to_article(row)
+                results.append({
+                    'article': article,
                     'categorie': row['categorie'],
-                    'confiance': row['confiance'],
-                    'mots_cles': json.loads(row['mots_cles']) if row['mots_cles'] else []
+                    'confiance': row['confiance']
                 })
             
-            return articles
+            return results
         
         finally:
             conn.close()
     
-    def get_classification_stats(self) -> Dict[str, Any]:
-        """
-        Obtenir des statistiques sur les classifications
-        
-        Returns:
-            Dictionnaire de statistiques
-        """
+    def get_category_stats(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Statistiques par catégorie"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
-            # Total d'articles classifiés
-            cursor.execute("SELECT COUNT(DISTINCT article_id) FROM classifications")
-            total_classifies = cursor.fetchone()[0]
+            date_limit = (datetime.now() - timedelta(days=days)).isoformat()
             
-            # Total d'articles
-            cursor.execute("SELECT COUNT(*) FROM articles")
-            total_articles = cursor.fetchone()[0]
-            
-            # Par catégorie
             cursor.execute("""
-                SELECT categorie, COUNT(*) as count
-                FROM classifications
-                GROUP BY categorie
-                ORDER BY count DESC
-            """)
-            par_categorie = {row['categorie']: row['count'] for row in cursor.fetchall()}
+                SELECT 
+                    c.categorie,
+                    COUNT(*) as total,
+                    AVG(c.confiance) as confiance_moyenne
+                FROM classifications c
+                JOIN articles a ON c.article_id = a.id
+                WHERE a.date_publication >= ?
+                GROUP BY c.categorie
+                ORDER BY total DESC
+            """, (date_limit,))
             
-            # Confiance moyenne par catégorie
-            cursor.execute("""
-                SELECT categorie, AVG(confiance) as avg_confiance
-                FROM classifications
-                GROUP BY categorie
-            """)
-            confiance_par_categorie = {row['categorie']: round(row['avg_confiance'], 2) 
-                                       for row in cursor.fetchall()}
-            
-            # Méthodes utilisées
-            cursor.execute("""
-                SELECT methode, COUNT(*) as count
-                FROM classifications
-                GROUP BY methode
-            """)
-            par_methode = {row['methode']: row['count'] for row in cursor.fetchall()}
-            
-            return {
-                'total_articles': total_articles,
-                'total_classifies': total_classifies,
-                'pourcentage_classifies': round(total_classifies / total_articles * 100, 1) if total_articles > 0 else 0,
-                'par_categorie': par_categorie,
-                'confiance_par_categorie': confiance_par_categorie,
-                'par_methode': par_methode
-            }
+            return [dict(row) for row in cursor.fetchall()]
         
         finally:
             conn.close()
     
-    def get_unclassified_articles(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        Récupérer les articles non classifiés
+    # ==================== FACEBOOK ====================
+    
+    def add_facebook_post(self, media_id: int, post_id: str, message: str,
+                         url: str, image_url: str = None, date_publication: str = None,
+                         likes: int = 0, comments: int = 0, shares: int = 0) -> int:
+        """Ajoute ou met à jour un post Facebook"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
         
-        Args:
-            limit: Nombre maximum d'articles
+        engagement_total = likes + comments + shares
         
-        Returns:
-            Liste d'articles
-        """
+        try:
+            cursor.execute("""
+                INSERT INTO facebook_posts (
+                    media_id, post_id, message, url, image_url, date_publication,
+                    likes, comments, shares, engagement_total
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(post_id) DO UPDATE SET
+                    likes = excluded.likes,
+                    comments = excluded.comments,
+                    shares = excluded.shares,
+                    engagement_total = excluded.engagement_total,
+                    scraped_at = CURRENT_TIMESTAMP
+            """, (
+                media_id, post_id, message, url, image_url, date_publication,
+                likes, comments, shares, engagement_total
+            ))
+            
+            post_id_db = cursor.lastrowid
+            conn.commit()
+            
+            return post_id_db
+        
+        finally:
+            conn.close()
+    
+    def get_facebook_posts_by_media(self, media_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+        """Récupère les posts Facebook d'un média"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute("""
-                SELECT a.id, a.titre, a.contenu, a.url, a.date_publication
-                FROM articles a
-                LEFT JOIN classifications c ON a.id = c.article_id
-                WHERE c.id IS NULL
-                ORDER BY a.date_publication DESC
+                SELECT * FROM facebook_posts
+                WHERE media_id = ?
+                ORDER BY date_publication DESC
                 LIMIT ?
-            """, (limit,))
+            """, (media_id, limit))
             
-            articles = []
-            for row in cursor.fetchall():
-                articles.append({
-                    'id': row['id'],
-                    'titre': row['titre'],
-                    'contenu': row['contenu'],
-                    'url': row['url'],
-                    'date_publication': row['date_publication']
-                })
-            
-            return articles
+            return [dict(row) for row in cursor.fetchall()]
         
+        finally:
+            conn.close()
+    
+    def calculate_media_metrics(self, media_id: int, days: int = 30) -> Optional[Dict[str, Any]]:
+        """Calcule les métriques d'un média"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            date_limit = (datetime.now() - timedelta(days=days)).isoformat()
+            periode_debut = date_limit
+            periode_fin = datetime.now().isoformat()
+            
+            # Compter les articles
+            cursor.execute("""
+                SELECT COUNT(*) as total
+                FROM articles
+                WHERE media_id = ? AND date_publication >= ?
+            """, (media_id, date_limit))
+            
+            total_articles = cursor.fetchone()['total']
+            
+            # Métriques Facebook
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_posts,
+                    SUM(likes) as total_likes,
+                    SUM(comments) as total_comments,
+                    SUM(shares) as total_shares,
+                    SUM(engagement_total) as engagement_total,
+                    AVG(engagement_total) as engagement_moyen
+                FROM facebook_posts
+                WHERE media_id = ? AND date_publication >= ?
+            """, (media_id, date_limit))
+            
+            fb_row = cursor.fetchone()
+            
+            metrics = {
+                'media_id': media_id,
+                'periode_debut': periode_debut,
+                'periode_fin': periode_fin,
+                'total_articles': total_articles,
+                'total_posts_facebook': fb_row['total_posts'] or 0,
+                'total_likes': fb_row['total_likes'] or 0,
+                'total_comments': fb_row['total_comments'] or 0,
+                'total_shares': fb_row['total_shares'] or 0,
+                'engagement_total': fb_row['engagement_total'] or 0,
+                'engagement_moyen': fb_row['engagement_moyen'] or 0
+            }
+            
+            # Sauvegarder les métriques
+            cursor.execute("""
+                INSERT INTO media_metrics (
+                    media_id, periode_debut, periode_fin,
+                    total_articles, total_posts_facebook,
+                    total_likes, total_comments, total_shares,
+                    engagement_total, engagement_moyen
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                media_id, periode_debut, periode_fin,
+                metrics['total_articles'], metrics['total_posts_facebook'],
+                metrics['total_likes'], metrics['total_comments'], metrics['total_shares'],
+                metrics['engagement_total'], metrics['engagement_moyen']
+            ))
+            
+            conn.commit()
+            
+            return metrics
+        
+        finally:
+            conn.close()
+    
+    def get_media_ranking(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Classement des médias par engagement"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            date_limit = (datetime.now() - timedelta(days=days)).isoformat()
+            
+            cursor.execute("""
+                SELECT 
+                    m.id,
+                    m.nom,
+                    m.url,
+                    COUNT(DISTINCT a.id) as total_articles,
+                    COUNT(DISTINCT fp.id) as total_posts_facebook,
+                    COALESCE(SUM(fp.likes), 0) as total_likes,
+                    COALESCE(SUM(fp.comments), 0) as total_comments,
+                    COALESCE(SUM(fp.shares), 0) as total_shares,
+                    COALESCE(SUM(fp.engagement_total), 0) as engagement_total,
+                    COALESCE(AVG(fp.engagement_total), 0) as engagement_moyen
+                FROM medias m
+                LEFT JOIN articles a ON m.id = a.media_id AND a.date_publication >= ?
+                LEFT JOIN facebook_posts fp ON m.id = fp.media_id AND fp.date_publication >= ?
+                WHERE m.actif = 1
+                GROUP BY m.id, m.nom, m.url
+                ORDER BY engagement_total DESC, total_articles DESC
+            """, (date_limit, date_limit))
+            
+            return [dict(row) for row in cursor.fetchall()]
+        
+        finally:
+            conn.close()
+    
+    # ==================== TWITTER ====================
+    
+    def add_twitter_tweet(self, media_id: int, tweet_id: str, text: str,
+                         url: str, image_url: str = None, date_publication: str = None,
+                         retweets: int = 0, replies: int = 0, likes: int = 0,
+                         quotes: int = 0, impressions: int = 0) -> int:
+        """Ajoute ou met à jour un tweet"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        engagement_total = retweets + replies + likes + quotes
+        
+        try:
+            cursor.execute("""
+                INSERT INTO twitter_tweets (
+                    media_id, tweet_id, text, url, image_url, date_publication,
+                    retweets, replies, likes, quotes, impressions, engagement_total
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(tweet_id) DO UPDATE SET
+                    retweets = excluded.retweets,
+                    replies = excluded.replies,
+                    likes = excluded.likes,
+                    quotes = excluded.quotes,
+                    impressions = excluded.impressions,
+                    engagement_total = excluded.engagement_total,
+                    scraped_at = CURRENT_TIMESTAMP
+            """, (
+                media_id, tweet_id, text, url, image_url, date_publication,
+                retweets, replies, likes, quotes, impressions, engagement_total
+            ))
+            
+            tweet_id_db = cursor.lastrowid
+            conn.commit()
+            
+            return tweet_id_db
+        
+        finally:
+            conn.close()
+    
+    def get_twitter_tweets_by_media(self, media_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+        """Récupère les tweets d'un média"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                SELECT * FROM twitter_tweets
+                WHERE media_id = ?
+                ORDER BY date_publication DESC
+                LIMIT ?
+            """, (media_id, limit))
+            
+            return [dict(row) for row in cursor.fetchall()]
+        
+        finally:
+            conn.close()
+    
+    def calculate_media_metrics_with_twitter(self, media_id: int, days: int = 30) -> Optional[Dict[str, Any]]:
+        """Calcule les métriques d'un média (articles + Facebook + Twitter)"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            date_limit = (datetime.now() - timedelta(days=days)).isoformat()
+            periode_debut = date_limit
+            periode_fin = datetime.now().isoformat()
+            
+            # Compter les articles
+            cursor.execute("""
+                SELECT COUNT(*) as total
+                FROM articles
+                WHERE media_id = ? AND date_publication >= ?
+            """, (media_id, date_limit))
+            
+            total_articles = cursor.fetchone()['total']
+            
+            # Métriques Facebook
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_posts,
+                    SUM(likes) as total_likes,
+                    SUM(comments) as total_comments,
+                    SUM(shares) as total_shares,
+                    SUM(engagement_total) as engagement_total
+                FROM facebook_posts
+                WHERE media_id = ? AND date_publication >= ?
+            """, (media_id, date_limit))
+            
+            fb_row = cursor.fetchone()
+            
+            # Métriques Twitter
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_tweets,
+                    SUM(retweets) as total_retweets,
+                    SUM(replies) as total_replies,
+                    SUM(likes) as total_likes,
+                    SUM(quotes) as total_quotes,
+                    SUM(impressions) as total_impressions,
+                    SUM(engagement_total) as engagement_total
+                FROM twitter_tweets
+                WHERE media_id = ? AND date_publication >= ?
+            """, (media_id, date_limit))
+            
+            tw_row = cursor.fetchone()
+            
+            # Calculer l'engagement total
+            engagement_fb = fb_row['engagement_total'] or 0
+            engagement_tw = tw_row['engagement_total'] or 0
+            engagement_total = engagement_fb + engagement_tw
+            
+            total_posts = (fb_row['total_posts'] or 0) + (tw_row['total_tweets'] or 0)
+            engagement_moyen = engagement_total / total_posts if total_posts > 0 else 0
+            
+            metrics = {
+                'media_id': media_id,
+                'periode_debut': periode_debut,
+                'periode_fin': periode_fin,
+                'total_articles': total_articles,
+                'total_posts_facebook': fb_row['total_posts'] or 0,
+                'total_tweets': tw_row['total_tweets'] or 0,
+                'total_likes_fb': fb_row['total_likes'] or 0,
+                'total_comments_fb': fb_row['total_comments'] or 0,
+                'total_shares_fb': fb_row['total_shares'] or 0,
+                'engagement_total_fb': engagement_fb,
+                'total_retweets': tw_row['total_retweets'] or 0,
+                'total_replies': tw_row['total_replies'] or 0,
+                'total_likes_tw': tw_row['total_likes'] or 0,
+                'total_quotes': tw_row['total_quotes'] or 0,
+                'total_impressions': tw_row['total_impressions'] or 0,
+                'engagement_total_tw': engagement_tw,
+                'engagement_total': engagement_total,
+                'engagement_moyen': engagement_moyen
+            }
+            
+            # Sauvegarder les métriques
+            cursor.execute("""
+                INSERT INTO media_metrics (
+                    media_id, periode_debut, periode_fin,
+                    total_articles, total_posts_facebook, total_tweets,
+                    total_likes_fb, total_comments_fb, total_shares_fb, engagement_total_fb,
+                    total_retweets, total_replies, total_likes_tw, total_quotes,
+                    total_impressions, engagement_total_tw,
+                    engagement_total, engagement_moyen
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                media_id, periode_debut, periode_fin,
+                metrics['total_articles'], metrics['total_posts_facebook'], metrics['total_tweets'],
+                metrics['total_likes_fb'], metrics['total_comments_fb'], metrics['total_shares_fb'],
+                metrics['engagement_total_fb'],
+                metrics['total_retweets'], metrics['total_replies'], metrics['total_likes_tw'],
+                metrics['total_quotes'], metrics['total_impressions'], metrics['engagement_total_tw'],
+                metrics['engagement_total'], metrics['engagement_moyen']
+            ))
+            
+            conn.commit()
+            
+            return metrics
+        
+        finally:
+            conn.close()
+    
+    def get_media_ranking_with_twitter(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Classement des médias par engagement (Facebook + Twitter)"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            date_limit = (datetime.now() - timedelta(days=days)).isoformat()
+            
+            cursor.execute("""
+                SELECT 
+                    m.id,
+                    m.nom,
+                    m.url,
+                    COUNT(DISTINCT a.id) as total_articles,
+                    COUNT(DISTINCT fp.id) as total_posts_facebook,
+                    COUNT(DISTINCT tw.id) as total_tweets,
+                    COALESCE(SUM(fp.likes), 0) as total_likes_fb,
+                    COALESCE(SUM(fp.comments), 0) as total_comments_fb,
+                    COALESCE(SUM(fp.shares), 0) as total_shares_fb,
+                    COALESCE(SUM(fp.engagement_total), 0) as engagement_total_fb,
+                    COALESCE(SUM(tw.retweets), 0) as total_retweets,
+                    COALESCE(SUM(tw.replies), 0) as total_replies,
+                    COALESCE(SUM(tw.likes), 0) as total_likes_tw,
+                    COALESCE(SUM(tw.quotes), 0) as total_quotes,
+                    COALESCE(SUM(tw.impressions), 0) as total_impressions,
+                    COALESCE(SUM(tw.engagement_total), 0) as engagement_total_tw,
+                    COALESCE(SUM(fp.engagement_total), 0) + COALESCE(SUM(tw.engagement_total), 0) as engagement_total,
+                    CASE 
+                        WHEN (COUNT(DISTINCT fp.id) + COUNT(DISTINCT tw.id)) > 0 
+                        THEN (COALESCE(SUM(fp.engagement_total), 0) + COALESCE(SUM(tw.engagement_total), 0)) / 
+                             (COUNT(DISTINCT fp.id) + COUNT(DISTINCT tw.id))
+                        ELSE 0 
+                    END as engagement_moyen
+                FROM medias m
+                LEFT JOIN articles a ON m.id = a.media_id AND a.date_publication >= ?
+                LEFT JOIN facebook_posts fp ON m.id = fp.media_id AND fp.date_publication >= ?
+                LEFT JOIN twitter_tweets tw ON m.id = tw.media_id AND tw.date_publication >= ?
+                WHERE m.actif = 1
+                GROUP BY m.id, m.nom, m.url
+                ORDER BY engagement_total DESC, total_articles DESC
+            """, (date_limit, date_limit, date_limit))
+            
+            return [dict(row) for row in cursor.fetchall()]
+        
+        finally:
+            conn.close()
+    
+    # ==================== UTILITAIRES ====================
+    
+    def vacuum(self):
+        """Optimise la base de données"""
+        conn = self.get_connection()
+        try:
+            conn.execute("VACUUM")
+            conn.commit()
         finally:
             conn.close()

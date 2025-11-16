@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS medias (
     nom TEXT NOT NULL,
     url TEXT UNIQUE NOT NULL,
     type_site TEXT DEFAULT 'unknown',  -- wordpress, html, autre
+    facebook_page TEXT,  -- Nom/ID de la page Facebook
+    twitter_account TEXT,  -- Nom du compte Twitter (sans @)
     actif BOOLEAN DEFAULT 1,
     derniere_collecte TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -54,7 +56,7 @@ CREATE TABLE IF NOT EXISTS scraping_logs (
 -- Table des classifications thématiques
 CREATE TABLE IF NOT EXISTS classifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    article_id INTEGER NOT NULL,
+    article_id INTEGER NOT NULL UNIQUE,
     categorie TEXT NOT NULL,  -- Politique, Économie, Sécurité, Santé, Culture, Sport, Autres
     confiance REAL NOT NULL,  -- Score de confiance (0-1)
     mots_cles TEXT,  -- JSON array des mots-clés
@@ -77,6 +79,84 @@ CREATE TABLE IF NOT EXISTS entites (
     FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
 );
 
+-- Table des posts Facebook et leurs métriques
+CREATE TABLE IF NOT EXISTS facebook_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id INTEGER NOT NULL,
+    post_id TEXT UNIQUE NOT NULL,  -- ID Facebook du post
+    message TEXT,
+    url TEXT,
+    image_url TEXT,
+    date_publication TIMESTAMP,
+    likes INTEGER DEFAULT 0,
+    comments INTEGER DEFAULT 0,
+    shares INTEGER DEFAULT 0,
+    engagement_total INTEGER DEFAULT 0,  -- likes + comments + shares
+    scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (media_id) REFERENCES medias(id) ON DELETE CASCADE
+);
+
+-- Table des tweets et leurs métriques
+CREATE TABLE IF NOT EXISTS twitter_tweets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id INTEGER NOT NULL,
+    tweet_id TEXT UNIQUE NOT NULL,  -- ID Twitter du tweet
+    text TEXT,
+    url TEXT,
+    image_url TEXT,
+    date_publication TIMESTAMP,
+    retweets INTEGER DEFAULT 0,
+    replies INTEGER DEFAULT 0,
+    likes INTEGER DEFAULT 0,
+    quotes INTEGER DEFAULT 0,
+    impressions INTEGER DEFAULT 0,
+    engagement_total INTEGER DEFAULT 0,  -- retweets + replies + likes + quotes
+    scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (media_id) REFERENCES medias(id) ON DELETE CASCADE
+);
+
+-- Table des métriques d'audience par média
+CREATE TABLE IF NOT EXISTS media_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id INTEGER NOT NULL,
+    periode_debut DATE NOT NULL,
+    periode_fin DATE NOT NULL,
+    
+    -- Volume
+    total_articles INTEGER DEFAULT 0,
+    total_posts_facebook INTEGER DEFAULT 0,
+    total_tweets INTEGER DEFAULT 0,
+    
+    -- Engagement Facebook
+    total_likes_fb INTEGER DEFAULT 0,
+    total_comments_fb INTEGER DEFAULT 0,
+    total_shares_fb INTEGER DEFAULT 0,
+    engagement_total_fb INTEGER DEFAULT 0,
+    
+    -- Engagement Twitter
+    total_retweets INTEGER DEFAULT 0,
+    total_replies INTEGER DEFAULT 0,
+    total_likes_tw INTEGER DEFAULT 0,
+    total_quotes INTEGER DEFAULT 0,
+    total_impressions INTEGER DEFAULT 0,
+    engagement_total_tw INTEGER DEFAULT 0,
+    
+    -- Engagement global
+    engagement_total INTEGER DEFAULT 0,  -- Facebook + Twitter
+    engagement_moyen REAL DEFAULT 0,
+    
+    -- Scores calculés
+    score_volume REAL DEFAULT 0,  -- Basé sur nombre de publications
+    score_engagement REAL DEFAULT 0,  -- Basé sur interactions sociales
+    score_influence REAL DEFAULT 0,  -- Score composite final
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (media_id) REFERENCES medias(id) ON DELETE CASCADE
+);
+
 -- Index pour améliorer les performances
 CREATE INDEX IF NOT EXISTS idx_articles_media ON articles(media_id);
 CREATE INDEX IF NOT EXISTS idx_articles_date ON articles(date_publication);
@@ -89,3 +169,9 @@ CREATE INDEX IF NOT EXISTS idx_classifications_article ON classifications(articl
 CREATE INDEX IF NOT EXISTS idx_classifications_categorie ON classifications(categorie);
 CREATE INDEX IF NOT EXISTS idx_entites_article ON entites(article_id);
 CREATE INDEX IF NOT EXISTS idx_entites_type ON entites(type);
+CREATE INDEX IF NOT EXISTS idx_facebook_posts_media ON facebook_posts(media_id);
+CREATE INDEX IF NOT EXISTS idx_facebook_posts_date ON facebook_posts(date_publication);
+CREATE INDEX IF NOT EXISTS idx_twitter_tweets_media ON twitter_tweets(media_id);
+CREATE INDEX IF NOT EXISTS idx_twitter_tweets_date ON twitter_tweets(date_publication);
+CREATE INDEX IF NOT EXISTS idx_media_metrics_media ON media_metrics(media_id);
+CREATE INDEX IF NOT EXISTS idx_media_metrics_periode ON media_metrics(periode_debut, periode_fin);

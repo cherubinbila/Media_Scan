@@ -1,0 +1,23 @@
+# Configuration des pages Facebook des médias burkinabè
+# Format: nom_media|url_site|page_facebook
+# 
+# IMPORTANT: 
+# - page_facebook : nom de la page Facebook à scraper (source principale)
+# - url_site : référence vers sites.txt pour le scraping web
+# - Pour trouver le nom : regardez l'URL facebook.com/[NOM_PAGE]
+#
+# Commentez (#) les lignes des médias à ignorer
+
+# AIB - Page vérifiée
+AIB|https://www.aib.media|aib.infos
+
+# Autres médias (à vérifier/activer au besoin)
+# Sidwaya|https://www.sidwaya.info|sidwayainfo
+# Burkina24|https://burkina24.com|burkina24
+# Le Faso|https://lefaso.net|lefasonet
+# Faso7|https://faso7.com|faso7bf
+# L'Economiste du Faso|https://www.leconomistedufaso.bf|leconomistedufaso
+# Aujourd'8|https://www.aujourd8.net|aujourdhui8
+# L'Express du Faso|http://www.lexpressdufaso-bf.com|lexpressdufaso
+# L'Evénement|http://www.evenement-bf.net|evenementbf
+# RTB|https://www.rtb.bf|rtbburkina
