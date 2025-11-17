@@ -215,6 +215,10 @@ CREATE TABLE IF NOT EXISTS content_moderation (
     toxicity_reason TEXT,
     misinformation_reason TEXT,
     sensitivity_reason TEXT,
+    toxicity_details TEXT,  -- JSON complet de l'analyse de toxicité
+    misinformation_details TEXT,  -- JSON complet de l'analyse de désinformation
+    sensitivity_details TEXT,  -- JSON complet de l'analyse de sensibilité
+    primary_issue TEXT DEFAULT 'none',  -- Type principal de problème: 'toxicity', 'misinformation', 'sensitivity', 'none'
     analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     model_used TEXT DEFAULT 'llama3.2',
     

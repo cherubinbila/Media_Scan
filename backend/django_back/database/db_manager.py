@@ -633,6 +633,36 @@ class DatabaseManager:
         finally:
             conn.close()
     
+    def get_recent_facebook_posts(self, days: int = 7, limit: int = 500):
+        """Récupère les posts Facebook récents"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            date_limit = (datetime.now() - timedelta(days=days)).isoformat()
+            
+            cursor.execute("""
+                SELECT * FROM facebook_posts
+                WHERE date_publication >= ?
+                ORDER BY date_publication DESC
+                LIMIT ?
+            """, (date_limit, limit))
+            
+            # Créer des objets simples avec les attributs nécessaires
+            class FacebookPost:
+                def __init__(self, row):
+                    self.id = row['id']
+                    self.media_id = row['media_id']
+                    self.post_id = row['post_id']
+                    self.message = row['message']
+                    self.url = row['url']
+                    self.date_publication = row['date_publication']
+            
+            return [FacebookPost(row) for row in cursor.fetchall()]
+        
+        finally:
+            conn.close()
+    
     def calculate_media_metrics(self, media_id: int, days: int = 30) -> Optional[Dict[str, Any]]:
         """Calcule les métriques d'un média"""
         conn = self.get_connection()
@@ -788,6 +818,36 @@ class DatabaseManager:
             """, (media_id, limit))
             
             return [dict(row) for row in cursor.fetchall()]
+        
+        finally:
+            conn.close()
+    
+    def get_recent_twitter_tweets(self, days: int = 7, limit: int = 500):
+        """Récupère les tweets récents"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            date_limit = (datetime.now() - timedelta(days=days)).isoformat()
+            
+            cursor.execute("""
+                SELECT * FROM twitter_tweets
+                WHERE date_publication >= ?
+                ORDER BY date_publication DESC
+                LIMIT ?
+            """, (date_limit, limit))
+            
+            # Créer des objets simples avec les attributs nécessaires
+            class TwitterTweet:
+                def __init__(self, row):
+                    self.id = row['id']
+                    self.media_id = row['media_id']
+                    self.tweet_id = row['tweet_id']
+                    self.text = row['text']
+                    self.url = row['url']
+                    self.date_publication = row['date_publication']
+            
+            return [TwitterTweet(row) for row in cursor.fetchall()]
         
         finally:
             conn.close()
