@@ -49,9 +49,11 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <Radio className="h-6 w-6 text-primary-foreground" />
-              </div>
+              <img
+                src="/favicon.ico"
+                alt="CSC Logo"
+                className="h-10 w-10 rounded-lg"
+              />
               <div>
                 <h1 className="text-2xl font-bold text-foreground">
                   CSC Média Monitor

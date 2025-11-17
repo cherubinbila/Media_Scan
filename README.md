@@ -1,8 +1,11 @@
-📰 CSC Média Monitor
-
+<div align="center">
+  <img src="screenshoots/logo.png" alt="CSC Média Monitor Logo" width="200"/>
+  
+  # 📰 CSC Média Monitor
+</div>
 **Plateforme complète de surveillance, d'analyse et de modération des médias burkinabè**
 
-Système full-stack permettant le scraping automatique d'articles de presse, de posts Facebook et de tweets, avec classification thématique par IA, analyse d'audience multi-plateformes et modération de contenu.
+Système permettant le scraping automatique d'articles de presse, de posts Facebook et de tweets, avec classification thématique par IA, analyse d'audience multi-plateformes et modération de contenu.
 
 [![Django](https://img.shields.io/badge/Django-5.2.8-green.svg)](https://www.djangoproject.com/)
 [![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org/)
@@ -210,16 +213,19 @@ ollama serve
    - URL : https://www.aib.media
    - Type : wordpress
    - Compte Twitter : AibBurkina
+
 2. **Lancer un scraping** (onglet "Scraping")
 
    - Sélectionner "Tous les médias"
    - Configurer les paramètres
    - Cliquer sur "Démarrer le scraping"
+
 3. **Visualiser les résultats**
 
    - Onglet "Vue d'ensemble" : statistiques globales
    - Onglet "Classement" : médias par engagement
    - Onglet "Thématiques" : distribution des articles
+
 4. **Configurer l'automatisation** (onglet "Contrôle")
 
    - Activer le scraping automatique
@@ -504,7 +510,7 @@ Ce projet est développé dans le cadre du CSC Média Monitor pour l'analyse des
 ## 📞 Support
 
 - **Documentation** : Voir README backend et frontend
-- **Email** : bilafranck09@gmail.com  et  konateaskia1@gmail.com
+- **Email** : bilafranck09@gmail.com et konateaskia1@gmail.com
 
 ---
 
