@@ -44,6 +44,19 @@ class DatabaseManager:
         try:
             conn.executescript(schema)
             conn.commit()
+            
+            # Initialiser le média AIB par défaut si la table est vide
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) as count FROM medias")
+            count = cursor.fetchone()['count']
+            
+            if count == 0:
+                cursor.execute("""
+                    INSERT INTO medias (nom, url, type_site, twitter_account)
+                    VALUES ('AIB', 'https://www.aib.media', 'wordpress', 'AibBurkina')
+                """)
+                conn.commit()
+                print("✅ Média AIB initialisé automatiquement")
         finally:
             conn.close()
     

@@ -34,6 +34,17 @@ import {
 } from "@/hooks/useClassifications";
 
 const ThematicAnalysis = () => {
+  // Catégories fixes définies dans le backend
+  const FIXED_CATEGORIES = [
+    "Politique",
+    "Économie",
+    "Sécurité",
+    "Santé",
+    "Culture",
+    "Sport",
+    "Autres",
+  ];
+
   // Use TanStack Query hooks
   const { data: classificationData, isLoading: statsLoading } =
     useClassificationStats(30);
@@ -54,8 +65,6 @@ const ThematicAnalysis = () => {
 
   // Transform classification data
   const themes = useMemo(() => {
-    if (!classificationData) return [];
-
     const colors = [
       "hsl(var(--chart-1))",
       "hsl(var(--chart-2))",
@@ -63,23 +72,37 @@ const ThematicAnalysis = () => {
       "hsl(var(--chart-4))",
       "hsl(var(--chart-5))",
       "hsl(210 20% 65%)",
+      "hsl(220 15% 60%)",
     ];
 
-    const total = classificationData.reduce((sum, item) => sum + item.total, 0);
+    // Créer un map des données de l'API
+    const dataMap = new Map<string, number>();
+    let total = 0;
 
-    return classificationData.map((item, index) => ({
-      name: item.categorie,
-      icon: iconMap[item.categorie] || Newspaper,
-      articles: item.total,
-      percentage: total > 0 ? ((item.total / total) * 100).toFixed(1) : 0,
+    if (classificationData) {
+      classificationData.forEach((item) => {
+        dataMap.set(item.categorie, item.total);
+        total += item.total;
+      });
+    }
+
+    // Créer un thème pour chaque catégorie fixe
+    return FIXED_CATEGORIES.map((categorie, index) => ({
+      name: categorie,
+      icon: iconMap[categorie] || Newspaper,
+      articles: dataMap.get(categorie) || 0,
+      percentage:
+        total > 0
+          ? (((dataMap.get(categorie) || 0) / total) * 100).toFixed(1)
+          : "0.0",
       color: colors[index % colors.length],
       trend: "+" + Math.floor(Math.random() * 15 + 1) + "%",
     }));
-  }, [classificationData]);
+  }, [classificationData, FIXED_CATEGORIES]);
 
   // Transform weekly data from API
   const weeklyThemes = useMemo(() => {
-    if (!weeklyData || themes.length === 0) return [];
+    if (!weeklyData) return [];
 
     // Group data by week
     const weekMap = new Map<string, any>();
@@ -87,9 +110,9 @@ const ThematicAnalysis = () => {
     weeklyData.forEach((item) => {
       if (!weekMap.has(item.semaine)) {
         weekMap.set(item.semaine, { semaine: item.semaine });
-        // Initialize all categories to 0
-        themes.forEach((theme) => {
-          weekMap.get(item.semaine)![theme.name] = 0;
+        // Initialize all fixed categories to 0
+        FIXED_CATEGORIES.forEach((categorie) => {
+          weekMap.get(item.semaine)![categorie] = 0;
         });
       }
       // Set the actual value for this category
@@ -106,7 +129,7 @@ const ThematicAnalysis = () => {
       ...week,
       semaine: `S${index + 1}`,
     }));
-  }, [weeklyData, themes]);
+  }, [weeklyData, FIXED_CATEGORIES]);
 
   if (loading) {
     return (
@@ -184,24 +207,15 @@ const ThematicAnalysis = () => {
                     borderRadius: "var(--radius)",
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="Politique"
-                  stroke="hsl(var(--chart-1))"
-                  strokeWidth={2}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Sécurité"
-                  stroke="hsl(var(--chart-2))"
-                  strokeWidth={2}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Économie"
-                  stroke="hsl(var(--chart-3))"
-                  strokeWidth={2}
-                />
+                {themes.map((theme) => (
+                  <Line
+                    key={theme.name}
+                    type="monotone"
+                    dataKey={theme.name}
+                    stroke={theme.color}
+                    strokeWidth={2}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -232,41 +246,16 @@ const ThematicAnalysis = () => {
                     borderRadius: "var(--radius)",
                   }}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="Politique"
-                  stackId="1"
-                  stroke="hsl(var(--chart-1))"
-                  fill="hsl(var(--chart-1))"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="Sécurité"
-                  stackId="1"
-                  stroke="hsl(var(--chart-2))"
-                  fill="hsl(var(--chart-2))"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="Économie"
-                  stackId="1"
-                  stroke="hsl(var(--chart-3))"
-                  fill="hsl(var(--chart-3))"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="Santé"
-                  stackId="1"
-                  stroke="hsl(var(--chart-4))"
-                  fill="hsl(var(--chart-4))"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="Culture"
-                  stackId="1"
-                  stroke="hsl(var(--chart-5))"
-                  fill="hsl(var(--chart-5))"
-                />
+                {themes.map((theme) => (
+                  <Area
+                    key={theme.name}
+                    type="monotone"
+                    dataKey={theme.name}
+                    stackId="1"
+                    stroke={theme.color}
+                    fill={theme.color}
+                  />
+                ))}
               </AreaChart>
             </ResponsiveContainer>
           </CardContent>
