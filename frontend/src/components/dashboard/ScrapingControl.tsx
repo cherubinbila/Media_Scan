@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -45,16 +44,7 @@ import {
   useScrapingHistory,
 } from "@/hooks/useScraping";
 
-interface LocalScrapingTask {
-  id: string;
-  status: "running" | "completed" | "failed";
-  startedAt: string;
-  itemsCollected: number;
-}
-
 const ScrapingControl = () => {
-  const [tasks, setTasks] = useState<LocalScrapingTask[]>([]);
-
   const scrapeAllMutation = useScrapeAll();
   const { data: schedule } = useScrapingSchedule();
   const updateScheduleMutation = useUpdateScrapingSchedule();
@@ -63,59 +53,25 @@ const ScrapingControl = () => {
   // Récupération de l'historique avec polling automatique toutes les 5 secondes
   const { data: history } = useScrapingHistory({ limit: 10 });
 
-  // Nettoyer les tâches locales terminées après 10 secondes
-  useEffect(() => {
-    if (tasks.length === 0) return;
-
-    const timer = setTimeout(() => {
-      setTasks((currentTasks) =>
-        currentTasks.filter((task) => task.status === "running")
-      );
-    }, 10000);
-
-    return () => clearTimeout(timer);
-  }, [tasks]);
-
-  const handleLaunchScraping = async () => {
-    const newTask: LocalScrapingTask = {
-      id: Date.now().toString(),
-      status: "running",
-      startedAt: new Date().toLocaleString("fr-FR"),
-      itemsCollected: 0,
-    };
-
-    setTasks([newTask, ...tasks]);
-
-    try {
-      const result = await scrapeAllMutation.mutateAsync({
-        days: 7,
-      });
-
-      setTasks((currentTasks) =>
-        currentTasks.map((task) =>
-          task.id === newTask.id
-            ? {
-                ...task,
-                status: "completed" as const,
-                itemsCollected: result?.total_articles || 0,
-              }
-            : task
-        )
-      );
-
-      toast({
-        title: "Scraping terminé",
-        description: `${
-          result?.total_articles || 0
-        } articles collectés avec succès.`,
-      });
-    } catch (error) {
-      setTasks((currentTasks) =>
-        currentTasks.map((task) =>
-          task.id === newTask.id ? { ...task, status: "failed" as const } : task
-        )
-      );
+  const handleLaunchScraping = () => {
+    // Empêcher les doubles clics
+    if (scrapeAllMutation.isPending) {
+      return;
     }
+
+    scrapeAllMutation.mutate(
+      { days: 7 },
+      {
+        onSuccess: (result) => {
+          toast({
+            title: "Scraping terminé",
+            description: `${
+              result?.total_articles || 0
+            } articles collectés avec succès.`,
+          });
+        },
+      }
+    );
   };
 
   const handleAutomationToggle = (enabled: boolean) => {
@@ -269,21 +225,6 @@ const ScrapingControl = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* Afficher les tâches locales en cours */}
-              {tasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className="text-muted-foreground">
-                    {task.startedAt}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">Manuel</Badge>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(task.status)}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {task.status === "running" ? "-" : task.itemsCollected}
-                  </TableCell>
-                </TableRow>
-              ))}
               {/* Afficher l'historique de l'API */}
               {history?.tasks.map((task) => (
                 <TableRow key={task.id}>
@@ -303,7 +244,7 @@ const ScrapingControl = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {!history?.tasks.length && tasks.length === 0 && (
+              {!history?.tasks.length && (
                 <TableRow>
                   <TableCell
                     colSpan={4}

@@ -105,6 +105,7 @@ export const useScrapeAll = () => {
       }
       return response.data;
     },
+    retry: false, // Désactiver le retry automatique pour éviter les appels multiples
     onSuccess: () => {
       // Invalidate relevant queries after successful scraping
       queryClient.invalidateQueries({ queryKey: ['articles'] });
