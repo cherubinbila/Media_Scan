@@ -499,7 +499,7 @@ class ScrapingTriggerView(APIView):
                 text=True,
                 encoding='utf-8',
                 errors='replace',  # Remplacer les caractères invalides
-                timeout=300  # 5 minutes max
+                timeout=18000000000  # 30 minutes max
             )
             
             print(f"[SCRAPING] Return code: {result.returncode}")
