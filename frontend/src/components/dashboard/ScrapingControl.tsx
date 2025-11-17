@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -59,7 +59,22 @@ const ScrapingControl = () => {
   const { data: schedule } = useScrapingSchedule();
   const updateScheduleMutation = useUpdateScrapingSchedule();
   const toggleScheduleMutation = useToggleScrapingSchedule();
+
+  // Récupération de l'historique avec polling automatique toutes les 5 secondes
   const { data: history } = useScrapingHistory({ limit: 10 });
+
+  // Nettoyer les tâches locales terminées après 10 secondes
+  useEffect(() => {
+    if (tasks.length === 0) return;
+
+    const timer = setTimeout(() => {
+      setTasks((currentTasks) =>
+        currentTasks.filter((task) => task.status === "running")
+      );
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [tasks]);
 
   const handleLaunchScraping = async () => {
     const newTask: LocalScrapingTask = {

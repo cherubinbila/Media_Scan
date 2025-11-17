@@ -196,7 +196,7 @@ export const useToggleScrapingSchedule = () => {
 };
 
 /**
- * Hook to get scraping history
+ * Hook to get scraping history with automatic polling
  */
 export const useScrapingHistory = (params?: {
   limit?: number;
@@ -211,5 +211,7 @@ export const useScrapingHistory = (params?: {
       }
       return response.data;
     },
+    refetchInterval: 5000, // Polling toutes les 5 secondes
+    refetchIntervalInBackground: false, // Ne pas polling quand l'onglet est en arrière-plan
   });
 };
