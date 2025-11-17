@@ -32,7 +32,7 @@ import ScrapingControl from "@/components/dashboard/ScrapingControl";
 testApi();*/
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("scraping");
 
   const handleExport = (format: "pdf" | "excel") => {
     toast({
@@ -97,6 +97,10 @@ const Index = () => {
           className="space-y-6"
         >
           <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+            <TabsTrigger value="scraping" className="gap-2">
+              <Play className="h-4 w-4" />
+              <span className="hidden sm:inline">Scraping</span>
+            </TabsTrigger>
             <TabsTrigger value="overview" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Vue d'ensemble</span>
@@ -121,11 +125,11 @@ const Index = () => {
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Médias</span>
             </TabsTrigger>
-            <TabsTrigger value="scraping" className="gap-2">
-              <Play className="h-4 w-4" />
-              <span className="hidden sm:inline">Scraping</span>
-            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="scraping" className="space-y-6">
+            <ScrapingControl />
+          </TabsContent>
 
           <TabsContent value="overview" className="space-y-6">
             <DashboardOverview />
@@ -149,10 +153,6 @@ const Index = () => {
 
           <TabsContent value="media" className="space-y-6">
             <MediaManagement />
-          </TabsContent>
-
-          <TabsContent value="scraping" className="space-y-6">
-            <ScrapingControl />
           </TabsContent>
         </Tabs>
       </main>

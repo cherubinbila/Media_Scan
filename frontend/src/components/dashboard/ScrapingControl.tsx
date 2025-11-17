@@ -197,6 +197,31 @@ const ScrapingControl = () => {
 
   return (
     <div className="space-y-6">
+      {/* Lancement manuel */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Play className="h-5 w-5" />
+            Lancer un scraping manuel
+          </CardTitle>
+          <CardDescription>
+            Choisissez le type de scraping à exécuter immédiatement
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1  gap-4">
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2"
+              onClick={() => handleLaunchScraping("html")}
+            >
+              <Play className="h-16 w-16" />
+              <span>Lancer la collecte des données</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Automatisation */}
       <Card>
         <CardHeader>
@@ -252,7 +277,6 @@ const ScrapingControl = () => {
           )}
         </CardContent>
       </Card>
-
       {/* Historique */}
       <Card>
         <CardHeader>
