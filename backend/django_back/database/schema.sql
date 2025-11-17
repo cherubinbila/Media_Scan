@@ -230,3 +230,37 @@ CREATE INDEX IF NOT EXISTS idx_moderation_risk ON content_moderation(risk_score 
 CREATE INDEX IF NOT EXISTS idx_moderation_flag ON content_moderation(should_flag);
 CREATE INDEX IF NOT EXISTS idx_moderation_toxic ON content_moderation(is_toxic);
 CREATE INDEX IF NOT EXISTS idx_moderation_misinfo ON content_moderation(is_misinformation);
+
+-- ==================== TABLE: SCRAPING_SCHEDULE ====================
+-- Configuration de l'automatisation du scraping
+CREATE TABLE IF NOT EXISTS scraping_schedule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    enabled BOOLEAN DEFAULT 0,
+    frequency TEXT NOT NULL,  -- 'hourly', 'daily', 'weekly'
+    days INTEGER DEFAULT 7,  -- Nombre de jours à scraper
+    fb_posts INTEGER DEFAULT 10,  -- Nombre de posts Facebook
+    tweets INTEGER DEFAULT 10,  -- Nombre de tweets
+    next_run TIMESTAMP,  -- Prochaine exécution planifiée
+    last_run TIMESTAMP,  -- Dernière exécution
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==================== TABLE: SCRAPING_TASKS ====================
+-- Historique des tâches de scraping
+CREATE TABLE IF NOT EXISTS scraping_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,  -- 'manual', 'scheduled'
+    status TEXT NOT NULL,  -- 'running', 'completed', 'failed'
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    total_articles INTEGER DEFAULT 0,
+    total_fb_posts INTEGER DEFAULT 0,
+    total_tweets INTEGER DEFAULT 0,
+    error_message TEXT,
+    parameters TEXT  -- JSON des paramètres utilisés
+);
+
+CREATE INDEX IF NOT EXISTS idx_scraping_tasks_status ON scraping_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_scraping_tasks_type ON scraping_tasks(type);
+CREATE INDEX IF NOT EXISTS idx_scraping_tasks_started ON scraping_tasks(started_at DESC);

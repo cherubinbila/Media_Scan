@@ -20,7 +20,7 @@ export const scrapingService = {
   /**
    * Scraper un média spécifique
    */
-  async scrapeMedia(
+/*async scrapeMedia(
     url: string,
     options?: {
       days?: number;
@@ -39,7 +39,7 @@ export const scrapingService = {
       skip_facebook: options?.skipFacebook,
       skip_twitter: options?.skipTwitter,
     });
-  },
+  },*/
 
   /**
    * Scraper tous les médias

@@ -1410,6 +1410,218 @@ class DatabaseManager:
         finally:
             conn.close()
     
+    # ==================== SCRAPING SCHEDULE ====================
+    
+    def get_scraping_schedule(self) -> Optional[Dict[str, Any]]:
+        """Récupérer la configuration de l'automatisation"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("SELECT * FROM scraping_schedule ORDER BY id DESC LIMIT 1")
+            row = cursor.fetchone()
+            
+            if row:
+                return {
+                    'id': row['id'],
+                    'enabled': bool(row['enabled']),
+                    'frequency': row['frequency'],
+                    'days': row['days'],
+                    'fb_posts': row['fb_posts'],
+                    'tweets': row['tweets'],
+                    'next_run': row['next_run'],
+                    'last_run': row['last_run'],
+                    'created_at': row['created_at'],
+                    'updated_at': row['updated_at']
+                }
+            return None
+        
+        finally:
+            conn.close()
+    
+    def create_or_update_scraping_schedule(self, enabled: bool, frequency: str, 
+                                           days: int = 7, fb_posts: int = 10, 
+                                           tweets: int = 10) -> Dict[str, Any]:
+        """Créer ou mettre à jour la configuration de l'automatisation"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Calculer next_run basé sur la fréquence
+            now = datetime.now()
+            if frequency == 'hourly':
+                next_run = now + timedelta(hours=1)
+            elif frequency == 'daily':
+                next_run = now + timedelta(days=1)
+            elif frequency == 'weekly':
+                next_run = now + timedelta(weeks=1)
+            else:
+                next_run = now + timedelta(days=1)
+            
+            # Vérifier si une config existe
+            cursor.execute("SELECT id FROM scraping_schedule LIMIT 1")
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Mettre à jour
+                cursor.execute("""
+                    UPDATE scraping_schedule 
+                    SET enabled = ?, frequency = ?, days = ?, fb_posts = ?, tweets = ?,
+                        next_run = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (enabled, frequency, days, fb_posts, tweets, next_run.isoformat(), existing['id']))
+                schedule_id = existing['id']
+            else:
+                # Créer
+                cursor.execute("""
+                    INSERT INTO scraping_schedule (enabled, frequency, days, fb_posts, tweets, next_run)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (enabled, frequency, days, fb_posts, tweets, next_run.isoformat()))
+                schedule_id = cursor.lastrowid
+            
+            conn.commit()
+            
+            # Retourner la config mise à jour
+            cursor.execute("SELECT * FROM scraping_schedule WHERE id = ?", (schedule_id,))
+            row = cursor.fetchone()
+            
+            return {
+                'id': row['id'],
+                'enabled': bool(row['enabled']),
+                'frequency': row['frequency'],
+                'days': row['days'],
+                'fb_posts': row['fb_posts'],
+                'tweets': row['tweets'],
+                'next_run': row['next_run'],
+                'last_run': row['last_run'],
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at']
+            }
+        
+        finally:
+            conn.close()
+    
+    def delete_scraping_schedule(self):
+        """Supprimer la configuration de l'automatisation"""
+        conn = self.get_connection()
+        try:
+            conn.execute("DELETE FROM scraping_schedule")
+            conn.commit()
+        finally:
+            conn.close()
+    
+    def update_schedule_last_run(self):
+        """Mettre à jour last_run et calculer next_run"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("SELECT * FROM scraping_schedule LIMIT 1")
+            schedule = cursor.fetchone()
+            
+            if schedule:
+                now = datetime.now()
+                frequency = schedule['frequency']
+                
+                if frequency == 'hourly':
+                    next_run = now + timedelta(hours=1)
+                elif frequency == 'daily':
+                    next_run = now + timedelta(days=1)
+                elif frequency == 'weekly':
+                    next_run = now + timedelta(weeks=1)
+                else:
+                    next_run = now + timedelta(days=1)
+                
+                cursor.execute("""
+                    UPDATE scraping_schedule 
+                    SET last_run = ?, next_run = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (now.isoformat(), next_run.isoformat(), schedule['id']))
+                conn.commit()
+        
+        finally:
+            conn.close()
+    
+    # ==================== SCRAPING TASKS ====================
+    
+    def create_scraping_task(self, task_type: str, parameters: Dict[str, Any] = None) -> int:
+        """Créer une nouvelle tâche de scraping"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                INSERT INTO scraping_tasks (type, status, parameters)
+                VALUES (?, 'running', ?)
+            """, (task_type, json.dumps(parameters) if parameters else None))
+            conn.commit()
+            return cursor.lastrowid
+        
+        finally:
+            conn.close()
+    
+    def update_scraping_task(self, task_id: int, status: str, 
+                            total_articles: int = 0, total_fb_posts: int = 0, 
+                            total_tweets: int = 0, error_message: str = None):
+        """Mettre à jour une tâche de scraping"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            completed_at = datetime.now().isoformat() if status in ['completed', 'failed'] else None
+            
+            cursor.execute("""
+                UPDATE scraping_tasks 
+                SET status = ?, completed_at = ?, total_articles = ?, 
+                    total_fb_posts = ?, total_tweets = ?, error_message = ?
+                WHERE id = ?
+            """, (status, completed_at, total_articles, total_fb_posts, total_tweets, 
+                  error_message, task_id))
+            conn.commit()
+        
+        finally:
+            conn.close()
+    
+    def get_scraping_tasks(self, limit: int = 10, offset: int = 0) -> Dict[str, Any]:
+        """Récupérer l'historique des tâches de scraping"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Récupérer les tâches
+            cursor.execute("""
+                SELECT * FROM scraping_tasks 
+                ORDER BY started_at DESC 
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+            rows = cursor.fetchall()
+            
+            tasks = []
+            for row in rows:
+                tasks.append({
+                    'id': row['id'],
+                    'type': row['type'],
+                    'status': row['status'],
+                    'started_at': row['started_at'],
+                    'completed_at': row['completed_at'],
+                    'total_articles': row['total_articles'],
+                    'total_fb_posts': row['total_fb_posts'],
+                    'total_tweets': row['total_tweets'],
+                    'error_message': row['error_message']
+                })
+            
+            # Compter le total
+            cursor.execute("SELECT COUNT(*) as total FROM scraping_tasks")
+            total = cursor.fetchone()['total']
+            
+            return {
+                'tasks': tasks,
+                'total': total
+            }
+        
+        finally:
+            conn.close()
+    
     # ==================== UTILITAIRES ====================
     
     def vacuum(self):

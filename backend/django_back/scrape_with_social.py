@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Script de scraping complet : Web + Facebook + Twitter
 1. Scrape les articles du site web (RSS/HTML)
@@ -9,6 +10,14 @@ Script de scraping complet : Web + Facebook + Twitter
 
 import argparse
 import os
+import sys
+
+# Forcer l'encodage UTF-8 pour Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 from dotenv import load_dotenv
 from database.db_manager import DatabaseManager
 from scrapers.scraper_manager import ScraperManager

@@ -441,6 +441,10 @@ class ScrapingTriggerView(APIView):
     
     def post(self, request):
         """POST /api/scraping/trigger/"""
+        import subprocess
+        import sys
+        from pathlib import Path
+        
         serializer = ScrapingRequestSerializer(data=request.data)
         
         if not serializer.is_valid():
@@ -449,17 +453,166 @@ class ScrapingTriggerView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # TODO: Implémenter le scraping asynchrone
-        response_data = {
-            'status': 'queued',
-            'message': 'Scraping en cours...',
-            'total_articles': 0,
-            'total_fb_posts': 0,
-            'total_tweets': 0
-        }
+        data = serializer.validated_data
         
-        response_serializer = ScrapingResponseSerializer(response_data)
-        return Response(response_serializer.data, status=status.HTTP_202_ACCEPTED)
+        try:
+            # Créer une tâche de scraping (convertir en dict normal pour JSON)
+            task_id = db.create_scraping_task('manual', dict(data))
+        except Exception as e:
+            return Response(
+                {'error': f'Erreur lors de la création de la tâche: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        try:
+            # Construire la commande
+            script_path = Path(__file__).parent.parent / 'scrape_with_social.py'
+            cmd = [sys.executable, str(script_path)]
+            
+            if data.get('all'):
+                cmd.append('--all')
+            elif data.get('url'):
+                cmd.extend(['--url', data['url']])
+            else:
+                db.update_scraping_task(task_id, 'failed', error_message='Paramètres invalides')
+                return Response(
+                    {'error': 'Spécifiez --url ou --all'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if data.get('days'):
+                cmd.extend(['--days', str(data['days'])])
+            if data.get('fb_posts'):
+                cmd.extend(['--fb-posts', str(data['fb_posts'])])
+            if data.get('tweets'):
+                cmd.extend(['--tweets', str(data['tweets'])])
+            if data.get('skip_facebook'):
+                cmd.append('--skip-facebook')
+            if data.get('skip_twitter'):
+                cmd.append('--skip-twitter')
+            
+            # Exécuter le scraping
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minutes max
+            )
+            
+            if result.returncode == 0:
+                # Compter les résultats
+                days = data.get('days', 7)
+                articles = db.get_recent_articles(days=days, limit=10000)
+                fb_posts = db.get_recent_facebook_posts(days=days, limit=10000) if not data.get('skip_facebook') else []
+                tweets = db.get_recent_twitter_tweets(days=days, limit=10000) if not data.get('skip_twitter') else []
+                
+                total_articles = len(articles)
+                total_fb_posts = len(fb_posts)
+                total_tweets = len(tweets)
+                
+                # Mettre à jour la tâche
+                db.update_scraping_task(
+                    task_id, 'completed',
+                    total_articles=total_articles,
+                    total_fb_posts=total_fb_posts,
+                    total_tweets=total_tweets
+                )
+                
+                response_data = {
+                    'status': 'success',
+                    'message': 'Scraping terminé avec succès',
+                    'total_articles': total_articles,
+                    'total_fb_posts': total_fb_posts,
+                    'total_tweets': total_tweets
+                }
+                
+                response_serializer = ScrapingResponseSerializer(response_data)
+                return Response(response_serializer.data, status=status.HTTP_200_OK)
+            else:
+                error_msg = result.stderr or 'Erreur inconnue'
+                db.update_scraping_task(task_id, 'failed', error_message=error_msg)
+                return Response(
+                    {'error': error_msg},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        except subprocess.TimeoutExpired:
+            db.update_scraping_task(task_id, 'failed', error_message='Timeout')
+            return Response(
+                {'error': 'Le scraping a pris trop de temps'},
+                status=status.HTTP_408_REQUEST_TIMEOUT
+            )
+        except Exception as e:
+            db.update_scraping_task(task_id, 'failed', error_message=str(e))
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ScrapingScheduleView(APIView):
+    """Gérer l'automatisation du scraping"""
+    
+    def get(self, request):
+        """GET /api/scraping/schedule/"""
+        schedule = db.get_scraping_schedule()
+        
+        if schedule:
+            return Response(schedule)
+        else:
+            return Response(
+                {'message': 'Aucune automatisation configurée'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    def post(self, request):
+        """POST /api/scraping/schedule/"""
+        enabled = request.data.get('enabled', False)
+        frequency = request.data.get('frequency', 'daily')
+        days = request.data.get('days', 7)
+        fb_posts = request.data.get('fb_posts', 10)
+        tweets = request.data.get('tweets', 10)
+        
+        # Valider la fréquence
+        if frequency not in ['hourly', 'daily', 'weekly']:
+            return Response(
+                {'error': 'Fréquence invalide. Utilisez: hourly, daily, weekly'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        schedule = db.create_or_update_scraping_schedule(
+            enabled=enabled,
+            frequency=frequency,
+            days=days,
+            fb_posts=fb_posts,
+            tweets=tweets
+        )
+        
+        return Response({
+            'status': 'success',
+            'message': 'Automatisation mise à jour',
+            'schedule': schedule
+        })
+    
+    def delete(self, request):
+        """DELETE /api/scraping/schedule/"""
+        db.delete_scraping_schedule()
+        return Response({
+            'status': 'success',
+            'message': 'Automatisation supprimée'
+        })
+
+
+class ScrapingHistoryView(APIView):
+    """Historique des tâches de scraping"""
+    
+    def get(self, request):
+        """GET /api/scraping/history/?limit=10&offset=0"""
+        limit = int(request.GET.get('limit', 10))
+        offset = int(request.GET.get('offset', 0))
+        
+        history = db.get_scraping_tasks(limit=limit, offset=offset)
+        return Response(history)
 
 
 # ==================== STATS ====================
