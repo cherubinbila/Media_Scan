@@ -224,6 +224,23 @@ export interface ScrapingScheduleResponse {
   schedule?: ScrapingSchedule;
 }
 
+export interface ScrapingTask {
+  id: number;
+  type: 'manual' | 'scheduled';
+  status: 'running' | 'completed' | 'failed';
+  started_at: string;
+  completed_at?: string;
+  total_articles: number;
+  total_fb_posts: number;
+  total_tweets: number;
+  error_message?: string;
+}
+
+export interface ScrapingHistory {
+  tasks: ScrapingTask[];
+  total: number;
+}
+
 // Statistiques
 export interface Stats {
   total_medias: number;

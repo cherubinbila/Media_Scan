@@ -46,6 +46,7 @@ export const API_ENDPOINTS = {
   SCRAPING_TRIGGER: '/api/scraping/trigger/',
   SCRAPING_SCHEDULE: '/api/scraping/schedule/',
   SCRAPING_SCHEDULE_DETAIL: (id: number) => `/api/scraping/schedule/${id}/`,
+  SCRAPING_HISTORY: '/api/scraping/history/',
   
   // Statistiques
   STATS: '/api/stats/',

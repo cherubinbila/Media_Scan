@@ -110,6 +110,7 @@ export const useScrapeAll = () => {
       queryClient.invalidateQueries({ queryKey: ['articles'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       queryClient.invalidateQueries({ queryKey: ['classifications'] });
+      queryClient.invalidateQueries({ queryKey: ['scraping-history'] });
     },
   });
 };
@@ -190,6 +191,25 @@ export const useToggleScrapingSchedule = () => {
         description: error.message || 'Échec du changement d\'état de l\'automatisation',
         variant: 'destructive',
       });
+    },
+  });
+};
+
+/**
+ * Hook to get scraping history
+ */
+export const useScrapingHistory = (params?: {
+  limit?: number;
+  offset?: number;
+}) => {
+  return useQuery({
+    queryKey: ['scraping-history', params],
+    queryFn: async () => {
+      const response = await scrapingService.getHistory(params);
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      return response.data;
     },
   });
 };

@@ -42,45 +42,28 @@ import {
   useScrapingSchedule,
   useUpdateScrapingSchedule,
   useToggleScrapingSchedule,
+  useScrapingHistory,
 } from "@/hooks/useScraping";
 
-interface ScrapingTask {
+interface LocalScrapingTask {
   id: string;
-  type: "html" | "rss" | "twitter" | "facebook";
   status: "running" | "completed" | "failed";
   startedAt: string;
   itemsCollected: number;
 }
 
 const ScrapingControl = () => {
-  const [tasks, setTasks] = useState<ScrapingTask[]>([
-    {
-      id: "1",
-      type: "html",
-      status: "completed",
-      startedAt: "2024-03-15 10:30",
-      itemsCollected: 45,
-    },
-    {
-      id: "2",
-      type: "rss",
-      status: "completed",
-      startedAt: "2024-03-15 14:20",
-      itemsCollected: 32,
-    },
-  ]);
+  const [tasks, setTasks] = useState<LocalScrapingTask[]>([]);
 
   const scrapeAllMutation = useScrapeAll();
   const { data: schedule } = useScrapingSchedule();
   const updateScheduleMutation = useUpdateScrapingSchedule();
   const toggleScheduleMutation = useToggleScrapingSchedule();
+  const { data: history } = useScrapingHistory({ limit: 10 });
 
-  const handleLaunchScraping = async (
-    type: "html" | "rss" | "twitter" | "facebook"
-  ) => {
-    const newTask: ScrapingTask = {
+  const handleLaunchScraping = async () => {
+    const newTask: LocalScrapingTask = {
       id: Date.now().toString(),
-      type,
       status: "running",
       startedAt: new Date().toLocaleString("fr-FR"),
       itemsCollected: 0,
@@ -173,7 +156,7 @@ const ScrapingControl = () => {
             <Button
               variant="outline"
               className="h-24 flex flex-col gap-2"
-              onClick={() => handleLaunchScraping("html")}
+              onClick={handleLaunchScraping}
               disabled={scrapeAllMutation.isPending}
             >
               {scrapeAllMutation.isPending ? (
@@ -265,15 +248,20 @@ const ScrapingControl = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Date de lancement</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Articles collectés</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
+              {/* Afficher les tâches locales en cours */}
               {tasks.map((task) => (
                 <TableRow key={task.id}>
                   <TableCell className="text-muted-foreground">
                     {task.startedAt}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">Manuel</Badge>
                   </TableCell>
                   <TableCell>{getStatusBadge(task.status)}</TableCell>
                   <TableCell className="text-right font-medium">
@@ -281,6 +269,35 @@ const ScrapingControl = () => {
                   </TableCell>
                 </TableRow>
               ))}
+              {/* Afficher l'historique de l'API */}
+              {history?.tasks.map((task) => (
+                <TableRow key={task.id}>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(task.started_at).toLocaleString("fr-FR")}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={task.type === "manual" ? "outline" : "secondary"}
+                    >
+                      {task.type === "manual" ? "Manuel" : "Automatique"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{getStatusBadge(task.status)}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    {task.status === "running" ? "-" : task.total_articles}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!history?.tasks.length && tasks.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="text-center text-muted-foreground"
+                  >
+                    Aucun historique de scraping disponible
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

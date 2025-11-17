@@ -4,7 +4,7 @@
 
 import { apiClient, ApiResponse } from './api.client';
 import { API_ENDPOINTS } from './api.config';
-import { ScrapingRequest, ScrapingResponse, ScrapingSchedule, ScrapingScheduleResponse } from './types';
+import { ScrapingRequest, ScrapingResponse, ScrapingSchedule, ScrapingScheduleResponse, ScrapingHistory } from './types';
 
 export const scrapingService = {
   /**
@@ -89,5 +89,18 @@ export const scrapingService = {
    */
   async deleteSchedule(): Promise<ApiResponse<void>> {
     return apiClient.delete<void>(API_ENDPOINTS.SCRAPING_SCHEDULE);
+  },
+
+  /**
+   * Récupérer l'historique des tâches de scraping
+   */
+  async getHistory(params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<ScrapingHistory>> {
+    return apiClient.get<ScrapingHistory>(
+      API_ENDPOINTS.SCRAPING_HISTORY,
+      params
+    );
   },
 };
