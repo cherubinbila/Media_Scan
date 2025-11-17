@@ -106,21 +106,10 @@ export const useScrapeAll = () => {
       return response.data;
     },
     onSuccess: () => {
+      // Invalidate relevant queries after successful scraping
       queryClient.invalidateQueries({ queryKey: ['articles'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       queryClient.invalidateQueries({ queryKey: ['classifications'] });
-      
-      toast({
-        title: 'Succès',
-        description: 'Le scraping de tous les médias a été lancé',
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Erreur',
-        description: error.message || 'Échec du scraping global',
-        variant: 'destructive',
-      });
     },
   });
 };

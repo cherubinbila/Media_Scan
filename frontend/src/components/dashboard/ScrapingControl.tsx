@@ -37,6 +37,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useScrapeAll } from "@/hooks/useScraping";
 
 interface ScrapingTask {
   id: string;
@@ -69,7 +70,9 @@ const ScrapingControl = () => {
     frequency: "daily",
   });
 
-  const handleLaunchScraping = (
+  const scrapeAllMutation = useScrapeAll();
+
+  const handleLaunchScraping = async (
     type: "html" | "rss" | "twitter" | "facebook"
   ) => {
     const newTask: ScrapingTask = {
@@ -82,20 +85,18 @@ const ScrapingControl = () => {
 
     setTasks([newTask, ...tasks]);
 
-    toast({
-      title: "Scraping lancé",
-      description: `Le scraping ${getTypeLabel(type)} a été lancé avec succès.`,
-    });
+    try {
+      const result = await scrapeAllMutation.mutateAsync({
+        days: 7,
+      });
 
-    // Simulation: compléter après 3 secondes
-    setTimeout(() => {
-      setTasks((prev) =>
-        prev.map((task) =>
+      setTasks((currentTasks) =>
+        currentTasks.map((task) =>
           task.id === newTask.id
             ? {
                 ...task,
-                status: "completed",
-                itemsCollected: Math.floor(Math.random() * 50) + 10,
+                status: "completed" as const,
+                itemsCollected: result?.total_articles || 0,
               }
             : task
         )
@@ -103,9 +104,17 @@ const ScrapingControl = () => {
 
       toast({
         title: "Scraping terminé",
-        description: `Le scraping ${getTypeLabel(type)} est terminé.`,
+        description: `${
+          result?.total_articles || 0
+        } articles collectés avec succès.`,
       });
-    }, 3000);
+    } catch (error) {
+      setTasks((currentTasks) =>
+        currentTasks.map((task) =>
+          task.id === newTask.id ? { ...task, status: "failed" as const } : task
+        )
+      );
+    }
   };
 
   const handleAutomationToggle = (enabled: boolean) => {
@@ -214,9 +223,19 @@ const ScrapingControl = () => {
               variant="outline"
               className="h-24 flex flex-col gap-2"
               onClick={() => handleLaunchScraping("html")}
+              disabled={scrapeAllMutation.isPending}
             >
-              <Play className="h-16 w-16" />
-              <span>Lancer la collecte des données</span>
+              {scrapeAllMutation.isPending ? (
+                <>
+                  <Loader2 className="h-16 w-16 animate-spin" />
+                  <span>Collecte en cours...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="h-16 w-16" />
+                  <span>Lancer la collecte des données</span>
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
@@ -289,27 +308,18 @@ const ScrapingControl = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Statut</TableHead>
                 <TableHead>Date de lancement</TableHead>
+                <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Articles collectés</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tasks.map((task) => (
                 <TableRow key={task.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getTypeIcon(task.type)}
-                      <span className="font-medium">
-                        {getTypeLabel(task.type)}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(task.status)}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {task.startedAt}
                   </TableCell>
+                  <TableCell>{getStatusBadge(task.status)}</TableCell>
                   <TableCell className="text-right font-medium">
                     {task.status === "running" ? "-" : task.itemsCollected}
                   </TableCell>
